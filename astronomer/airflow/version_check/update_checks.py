@@ -1,0 +1,269 @@
+import enum
+import os
+import random
+import threading
+import time
+from datetime import timedelta
+
+import lazy_object_proxy
+import pendulum
+import requests
+import sqlalchemy.exc
+from flask import Blueprint
+from flask_appbuilder.api import BaseApi, expose
+from flask_appbuilder.security.decorators import protect
+from packaging import version
+
+from airflow.configuration import conf
+from airflow.utils.db import create_session
+from airflow.utils.log.logging_mixin import LoggingMixin
+from airflow.utils.timezone import utcnow
+from airflow import __version__ as AIRFLOW_VERSION
+
+try:
+    from airflow.www_rbac.decorators import action_logging
+except ImportError:
+    from airflow.www.decorators import action_logging
+
+
+# Code is placed in this file as the default Airlow logging config shows the
+# file name (not the logger name) so this prefixes our log messages with
+# "update_checks.py"
+
+
+class UpdateResult(enum.Enum):
+    FAILURE = enum.auto()
+    NOT_DUE = enum.auto()
+    SUCCESS_NO_UPDATE = enum.auto()
+    SUCCESS_UPDATE_AVAIL = enum.auto()
+
+
+class CheckThread(threading.Thread, LoggingMixin):
+    def __init__(self):
+        super().__init__(name="AstronomerCEAVersionCheckThread", daemon=True)
+        # Check once a day by default
+        self.check_interval = timedelta(seconds=conf.getint("astronomer", "update_check_interval", fallback=24*60*60))
+        self.request_timeout = conf.getint("astronomer", "update_check_timeout", fallback=60)
+        self.base_url = conf.get("webserver", "base_url")
+
+        self.update_url = conf.get("astronomer", "update_url", fallback="https://updates.astronomer.io/astronomer-cea")
+
+        if conf.getboolean('astronomer', '_fake_check', fallback=False):
+            self._get_update_json = self._make_fake_response
+
+    def run(self):
+        """
+        Periodically check for new versions of Astronomer Certified Airflow,
+        and update the AstronomerAvailableVersions table
+        """
+        if self.check_interval == 0:
+            self.log.info("Update checks disabled")
+            return
+
+        # On start up sleep for a small amount of time (to give the scheduler time to start up properly)
+        rand_delay = random.uniform(5, 20)
+        self.log.debug("Waiting %d seconds before doing first check", rand_delay)
+        time.sleep(rand_delay)
+        while True:
+            try:
+                update_available, wake_up_in = self.check_for_update()
+                if update_available == UpdateResult.SUCCESS_UPDATE_AVAIL:
+                    self.log.info("A new version of Astronomer Certified Airflow is available")
+                self.log.info("Check finished, next check in %s seconds", wake_up_in)
+            except Exception:
+                self.log.exception("Update check died with an exception, trying again in one hour")
+                wake_up_in = 3600
+
+            time.sleep(wake_up_in)
+
+    def check_for_update(self):
+        """
+        :return: The time to sleep for before the next check should be performed
+        :rtype: float
+        """
+        from .models import AstronomerVersionCheck
+
+        with create_session() as session:
+            try:
+                lock = AstronomerVersionCheck.acquire_lock(self.check_interval, session=session)
+            except sqlalchemy.exc.OperationalError as e:
+                if hasattr(e.orig, 'pgcode') and e.orig.pgcode == '55P03':
+                    self.log.debug("Could not acquire lock, or check not due, sleeping for 60s+/-10s")
+                    return UpdateResult.FAILURE, random.uniform(50, 70)
+                raise
+
+            if not lock:
+                next_check = AstronomerVersionCheck.get(session).last_checked + self.check_interval
+                how_long = (next_check - utcnow()).total_seconds()
+                self.log.debug("Next check not due until %s (%s seconds away)", next_check, how_long)
+                return UpdateResult.NOT_DUE, how_long
+
+            self.log.info("Checking for new version of Astronomer Certified Airflow, previous check was performed at %s", lock.last_checked)
+
+            lock.last_checked = utcnow()
+            lock.last_checked_by = lock.host_identifier()
+
+            # Issue the SQL for the above update, but don't commit the transaction
+            session.flush()
+
+            result = UpdateResult.SUCCESS_NO_UPDATE
+
+            for release in self._process_update_json(self._get_update_json()):
+                if not session.query(type(release)).get(release.version):
+                    self.log.info("Found %s in update document", release.version)
+                    session.add(release)
+                    result = UpdateResult.SUCCESS_UPDATE_AVAIL
+                else:
+                    # Update the record if needed.
+                    session.merge(release)
+
+            return result, self.check_interval.total_seconds()
+
+    def _process_update_json(self, update_document):
+        version = update_document.get('version', None)
+        if version != '1.0':
+            r = repr(version) if version else '<MISSING>'
+            raise RuntimeError("Un-parsable format_version " + r)
+
+        return self._process_update_json_v1_0(update_document)
+
+    def _process_update_json_v1_0(self, update_document):
+        from .models import AstronomerAvailableVersion
+
+        current_version = version.parse(AIRFLOW_VERSION)
+
+        def parse_version(rel):
+            rel['parsed_version'] = version.parse(rel['version'])
+            return rel
+
+        releases = map(parse_version, update_document.get('available_releases', []))
+
+        for release in sorted(releases, key=lambda rel: rel['parsed_version'], reverse=True):
+            ver = version.parse(release['version'])
+
+            if ver <= current_version:
+                self.log.debug("Found a release (%s) that is older than the running version -- stopping processing", ver)
+                break
+
+            if 'release_date' in release:
+                release_date = pendulum.parse(release['release_date'], timezone='UTC')
+            else:
+                release_date = utcnow()
+
+            yield AstronomerAvailableVersion(
+                version=release['version'],
+                level=release['level'],
+                date_released=release_date,
+                url=release.get('url'),
+                description=release.get('description'),
+            )
+
+    def _make_fake_response(self):
+        v = version.parse(AIRFLOW_VERSION)
+
+        new_version = f'{v.major}.{v.minor}.{v.micro+1}-1'
+
+        return {
+            'version': '1.0',
+            'available_releases': [
+                {
+                    'version': new_version,
+                    'url': f'https://astronomer.io/cea/release-notes/{new_version}.html',
+                    'level': 'bug_fix',
+                },
+            ]
+        }
+
+    def _get_update_json(self):  # pylint: disable=E0202
+        r = requests.get(
+            self.update_url,
+            timeout=self.request_timeout,
+            params={
+                'site': self.base_url,
+            },
+            headers={'User-Agent': f'airflow/{AIRFLOW_VERSION}'}
+        )
+
+        r.raise_for_status()
+        return r.json()
+
+
+class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
+
+    airflow_base_template = None
+
+    def __init__(self):
+        super().__init__(
+            "UpdateAvailableView",
+            __name__,
+            url_prefix='/astro',
+            static_folder='static',
+            template_folder=os.path.join(os.path.dirname(__file__), "templates"),
+        )
+
+    def available_update(self):
+        from .models import AstronomerAvailableVersion
+
+        with create_session() as session:
+            available_releases = session.query(AstronomerAvailableVersion).filter(
+                AstronomerAvailableVersion.hidden_from_ui.is_(False)
+            )
+
+            for rel in sorted(available_releases, key=lambda v: version.parse(v.version), reverse=True):
+                # For simplicity in the UI, only show the latest version that is available
+                return {
+                    'level': rel.level,
+                    'date_released': rel.date_released,
+                    'description': rel.description,
+                    'version': rel.version,
+                    'url': rel.url,
+                }
+        return None
+
+    def new_template_vars(self):
+        return {
+            # Fetch it once per template render, not each time it's accessed
+            'cea_update_available': lazy_object_proxy.Proxy(self.available_update),
+            'airflow_base_template': self.airflow_base_template
+        }
+
+    class UpdateAvailable(BaseApi):
+        resource_name = "update_available"
+        csrf_exempt = False
+        base_permissions = ['can_dismiss']
+
+        @expose("<path:version>/dismiss", methods=["POST"])
+        @protect(allow_browser_login=True)
+        @action_logging
+        def dismiss(self, version):
+            from .models import AstronomerAvailableVersion
+
+            with create_session() as session:
+                session.query(AstronomerAvailableVersion).filter(
+                    AstronomerAvailableVersion.version == version,
+                ).update(
+                    {AstronomerAvailableVersion.hidden_from_ui: True},
+                    synchronize_session=False
+                )
+
+            return self.response(200)
+
+    def register(self, app, options, first_registration):
+        """
+        Re-configure Flask to use our customized layout (that includes the call-home JS)
+        Called by Flask when registering the blueprint to the app
+        """
+        if not hasattr(app, 'appbuilder'):
+            return
+
+        self.airflow_base_template = app.appbuilder.base_template
+
+        if app.appbuilder.base_template == "airflow/master.html":
+            app.appbuilder.base_template = "astro-baselayout.html"
+        else:
+            self.log.warning("Not replacing appbuilder.base_template, it didn't have the expected value. Update"
+                             " available messages will not be visible in UI")
+        app.appbuilder.add_api(self.UpdateAvailable)
+        self.app_context_processor(self.new_template_vars)
+
+        super().register(app, options, first_registration)
