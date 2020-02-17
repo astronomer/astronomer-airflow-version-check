@@ -1,0 +1,8 @@
+# Requirements that can't be expressed in setup.py
+
+# We need our back-ported fixes to Airflow for our tests to pass
+# We need to specify the astro version here, otherwise it would install the one from pypi repo instead
+--find-links=https://pip.astronomer.io/simple/
+apache-airflow==1.10.7+astro.6
+
+-e .[test]
