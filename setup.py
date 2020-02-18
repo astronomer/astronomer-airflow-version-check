@@ -14,8 +14,7 @@
 import os
 import re
 
-from setuptools import find_namespace_packages, setup
-from setuptools.command.install import install
+from setuptools import find_namespace_packages, setup, Command
 
 
 def fpath(*parts):
@@ -31,15 +30,22 @@ def desc():
 
 
 # Cribbed from https://circleci.com/blog/continuously-deploying-python-packages-to-pypi-with-circleci/
-class VerifyVersionCommand(install):
+class VerifyVersionCommand(Command):
     """Custom command to verify that the git tag matches our version"""
     description = 'verify that the git tag matches our version'
+    user_options = []
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
 
     def run(self):
         tag = os.getenv('CIRCLE_TAG')
 
-        if tag != VERSION:
-            info = "Git tag: {0} does not match the version of this app: {1}".format(
+        if tag != "v" + VERSION:
+            info = "Git tag: {0} does not match the version of this app: v{1}".format(
                 tag, VERSION
             )
             exit(info)

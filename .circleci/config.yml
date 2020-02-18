@@ -13,11 +13,12 @@ workflows:
             tags:
               only: /.*/
       - publish:
+          context: "Pip Deploy"
           requires: [build]
           # Run this stage only for version-number tagged builds
           filters:
             tags:
-              only: /^\d+[.\d]+.*/
+              only: /^v\d+[.\d]+.*/
             branches:
               ignore: /.*/
 jobs:
