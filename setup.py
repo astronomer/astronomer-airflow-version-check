@@ -15,6 +15,7 @@ import os
 import re
 
 from setuptools import find_namespace_packages, setup
+from setuptools.command.install import install
 
 
 def fpath(*parts):
@@ -29,6 +30,21 @@ def desc():
     return read('README.md')
 
 
+# Cribbed from https://circleci.com/blog/continuously-deploying-python-packages-to-pypi-with-circleci/
+class VerifyVersionCommand(install):
+    """Custom command to verify that the git tag matches our version"""
+    description = 'verify that the git tag matches our version'
+
+    def run(self):
+        tag = os.getenv('CIRCLE_TAG')
+
+        if tag != VERSION:
+            info = "Git tag: {0} does not match the version of this app: {1}".format(
+                tag, VERSION
+            )
+            exit(info)
+
+
 # https://packaging.python.org/guides/single-sourcing-package-version/
 def find_version(*paths):
     version_file = read(*paths)
@@ -38,9 +54,11 @@ def find_version(*paths):
     raise RuntimeError("Unable to find version string.")
 
 
+VERSION = find_version('astronomer', 'airflow', 'version_check', 'plugin.py')
+
 setup(
     name='astronomer-airflow-version-check',
-    version=find_version('astronomer', 'airflow', 'version_check', 'plugin.py'),
+    version=VERSION,
     url='https://github.com/astronomer/astronomer-airflow-version-check',
     license='Apache2',
     author='astronomerio',
@@ -85,4 +103,5 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Programming Language :: Python :: 3',
     ],
+    cmdclass={"verify": VerifyVersionCommand}
 )
