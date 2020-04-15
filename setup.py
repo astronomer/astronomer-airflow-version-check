@@ -86,7 +86,7 @@ setup(
         'airflow.plugins': ['astronomer_version_check=astronomer.airflow.version_check.plugin:AstronomerVersionCheckPlugin']
     },
     install_requires=[
-        'apache-airflow>=1.10.5',
+        'astronomer-certified>=1.10.7',
         'lazy_object_proxy~=1.3',
         'packaging>=20.0',
     ],

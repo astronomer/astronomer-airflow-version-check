@@ -60,6 +60,13 @@ class CheckThread(threading.Thread, LoggingMixin):
             self.log.info("Update checks disabled")
             return
 
+        import pkg_resources
+        try:
+            self.ac_version = pkg_resources.get_distribution('astronomer-certified').version
+        except pkg_resources.DistributionNotFound:
+            # Try to work out ac_version from airflow version
+            self.ac_version = AIRFLOW_VERSION.replace('+astro.', '-')
+
         # On start up sleep for a small amount of time (to give the scheduler time to start up properly)
         rand_delay = random.uniform(5, 20)
         self.log.debug("Waiting %d seconds before doing first check", rand_delay)
@@ -130,7 +137,7 @@ class CheckThread(threading.Thread, LoggingMixin):
     def _process_update_json_v1_0(self, update_document):
         from .models import AstronomerAvailableVersion
 
-        current_version = version.parse(AIRFLOW_VERSION)
+        current_version = version.parse(self.ac_version)
 
         def parse_version(rel):
             rel['parsed_version'] = version.parse(rel['version'])
@@ -159,7 +166,7 @@ class CheckThread(threading.Thread, LoggingMixin):
             )
 
     def _make_fake_response(self):
-        v = version.parse(AIRFLOW_VERSION)
+        v = version.parse(self.ac_version)
 
         new_version = f'{v.major}.{v.minor}.{v.micro+1}-1'
 
@@ -181,7 +188,7 @@ class CheckThread(threading.Thread, LoggingMixin):
             params={
                 'site': self.base_url,
             },
-            headers={'User-Agent': f'airflow/{AIRFLOW_VERSION}'}
+            headers={'User-Agent': f'airflow/{self.ac_version}'}
         )
 
         r.raise_for_status()
