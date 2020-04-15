@@ -46,7 +46,7 @@ class CheckThread(threading.Thread, LoggingMixin):
         self.request_timeout = conf.getint("astronomer", "update_check_timeout", fallback=60)
         self.base_url = conf.get("webserver", "base_url")
 
-        self.update_url = conf.get("astronomer", "update_url", fallback="https://updates.astronomer.io/astronomer-cea")
+        self.update_url = conf.get("astronomer", "update_url", fallback="https://updates.astronomer.io/astronomer-certified")
 
         if conf.getboolean('astronomer', '_fake_check', fallback=False):
             self._get_update_json = self._make_fake_response
