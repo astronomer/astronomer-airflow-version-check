@@ -72,8 +72,12 @@ setup(
     description='Periodically check for new releases of Astronomer Certified Airflow',
     long_description=desc(),
     long_description_content_type="text/markdown",
-    packages=find_namespace_packages(exclude='tests'),
-    package_data={'': ['LICENSE']},
+    packages=find_namespace_packages(include=('astronomer', 'astronomer.*')),
+    package_data={
+        '': ['LICENSE'],
+        'astronomer.airflow.version_check.templates': ['*'],
+        'astronomer.airflow.version_check.static': ['*'],
+    },
     namespace_packages=['astronomer', 'astronomer.airflow'],
     include_package_data=True,
     zip_safe=True,
@@ -109,5 +113,6 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Programming Language :: Python :: 3',
     ],
-    cmdclass={"verify": VerifyVersionCommand}
+    python_requires='>=3.5.3',
+    cmdclass={"verify": VerifyVersionCommand},
 )
