@@ -4,6 +4,7 @@ wheel
 # We need our back-ported fixes to Airflow for our tests to pass
 # We need to specify the astro version here, otherwise it would install the one from pypi repo instead
 --extra-index-url=https://pip.astronomer.io/simple/
+--constraint=https://raw.githubusercontent.com/astronomer/ap-airflow/master/1.10.7/buster/include/pip-constraints.txt
 astronomer-certified==1.10.7.*
 
 -e .[test]
