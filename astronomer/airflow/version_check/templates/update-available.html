@@ -1,10 +1,10 @@
 {% if current_user.is_authenticated and cea_update_available %}
   {% set level = "error" if cea_update_available.level == "critical" else "warning" %}
-  <div class="alert alert-{{ level }} cea-update-notice">
+  <div class="alert alert-{{ level }} ac-update-notice">
     {% if "can_dismiss" | is_item_visible("UpdateAvailable") %}
       <button data-href="{{ url_for('UpdateAvailable.dismiss', version=cea_update_available.version) }}" title="Ignore this update, and hide this message from all users">&times; Ignore this update</button>
     {% endif %}
-    <p><strong>A new version of Astronomer CEA is available.</strong></p>
+    <p><strong>A new version of Astronomer Certified is available.</strong></p>
     <p>
     {% if cea_update_available.url %}
       <a href="{{ cea_update_available.url }}">
