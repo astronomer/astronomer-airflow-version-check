@@ -121,6 +121,7 @@ class CheckThread(threading.Thread, LoggingMixin):
                     session.add(release)
                     result = UpdateResult.SUCCESS_UPDATE_AVAIL
                 else:
+                    self.log.debug("Updating existing update record", release.version)
                     # Update the record if needed.
                     session.merge(release)
 
@@ -139,6 +140,8 @@ class CheckThread(threading.Thread, LoggingMixin):
 
         current_version = version.parse(self.ac_version)
 
+        self.log.debug("Raw versions in update document: %r", list(r['version'] for r in update_document.get('available_releases', [])))
+
         def parse_version(rel):
             rel['parsed_version'] = version.parse(rel['version'])
             return rel
@@ -149,7 +152,7 @@ class CheckThread(threading.Thread, LoggingMixin):
             ver = version.parse(release['version'])
 
             if ver <= current_version:
-                self.log.debug("Found a release (%s) that is older than the running version -- stopping processing", ver)
+                self.log.debug("Got to a release (%s) that is older than the running version (%s) -- stopping looking for more", ver, self.ac_version)
                 break
 
             if 'release_date' in release:
