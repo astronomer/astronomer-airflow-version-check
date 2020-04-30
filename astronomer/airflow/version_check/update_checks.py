@@ -266,6 +266,12 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         if not hasattr(app, 'appbuilder'):
             return
 
+        with create_session() as session:
+            engine = session.get_bind(mapper=None, clause=None)
+            if not engine.has_table(AstronomerVersionCheck.__tablename__):
+                self.log.warn("AstronomerVersionCheck tables are missing (plugin not installed at upgradedb time?) - no update checks will be performed")
+                return
+
         self.airflow_base_template = app.appbuilder.base_template
 
         if app.appbuilder.base_template == "airflow/master.html":
