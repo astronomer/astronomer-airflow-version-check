@@ -41,6 +41,13 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
         from .models import AstronomerVersionCheck
         from .update_checks import CheckThread
 
+        with create_session() as session:
+            engine = session.get_bind(mapper=None, clause=None)
+            if not engine.has_table(AstronomerVersionCheck.__tablename__):
+                log.warn("AstronomerVersionCheck tables are missing (plugin not installed at upgradedb "
+                         "time?). No update checks will be performed")
+                return
+
         AstronomerVersionCheck.ensure_singleton()
         CheckThread().start()
 

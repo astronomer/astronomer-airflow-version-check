@@ -263,8 +263,16 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         Re-configure Flask to use our customized layout (that includes the call-home JS)
         Called by Flask when registering the blueprint to the app
         """
+        from .models import AstronomerVersionCheck
         if not hasattr(app, 'appbuilder'):
             return
+
+        with create_session() as session:
+            engine = session.get_bind(mapper=None, clause=None)
+            if not engine.has_table(AstronomerVersionCheck.__tablename__):
+                self.log.warn("AstronomerVersionCheck tables are missing (plugin not installed at upgradedb "
+                              "time?). No update checks will be performed")
+                return
 
         self.airflow_base_template = app.appbuilder.base_template
 
