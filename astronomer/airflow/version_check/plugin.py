@@ -6,7 +6,7 @@ from airflow.utils.db import create_session
 
 from .update_checks import UpdateAvailableBlueprint
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 log = logging.getLogger(__name__)
 
