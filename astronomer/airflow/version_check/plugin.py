@@ -15,6 +15,7 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
     name = "astronomer_version_check"
 
     flask_blueprints = [UpdateAvailableBlueprint()]
+
     @staticmethod
     def add_before_call(mod_or_cls, target, pre_fn):
         fn = getattr(mod_or_cls, target)
