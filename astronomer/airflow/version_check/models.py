@@ -29,6 +29,11 @@ class AstronomerVersionCheck(Base):
         Ensure that the singleton row exists in this table
         """
         with create_session() as session:
+            # To keep PG logs quieter (it shows an ERROR for the PK violation),
+            # we try and select first
+            if session.query(cls).get(singleton=True) is not None:
+                return
+
             try:
                 session.bulk_save_objects([cls(singleton=True)])
             except sqlalchemy.exc.IntegrityError:
