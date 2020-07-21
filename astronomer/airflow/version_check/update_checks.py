@@ -68,6 +68,7 @@ class CheckThread(threading.Thread, LoggingMixin):
         time.sleep(rand_delay)
         while True:
             try:
+                self.hide_old_versions()
                 update_available, wake_up_in = self.check_for_update()
                 if update_available == UpdateResult.SUCCESS_UPDATE_AVAIL:
                     self.log.info("A new version of Astronomer Certified Airflow is available")
@@ -77,6 +78,21 @@ class CheckThread(threading.Thread, LoggingMixin):
                 wake_up_in = 3600
 
             time.sleep(wake_up_in)
+
+    @staticmethod
+    def hide_old_versions():
+        """Hide Old Versions from displaying in the UI"""
+        from .models import AstronomerAvailableVersion
+
+        with create_session() as session:
+            available_releases = session.query(AstronomerAvailableVersion).filter(
+                AstronomerAvailableVersion.hidden_from_ui.is_(False)
+            )
+
+            ac_version = version.parse(get_ac_version())
+            for rel in available_releases:
+                if ac_version >= version.parse(rel.version):
+                    rel.hidden_from_ui = True
 
     def check_for_update(self):
         """
