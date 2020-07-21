@@ -60,12 +60,7 @@ class CheckThread(threading.Thread, LoggingMixin):
             self.log.info("Update checks disabled")
             return
 
-        import pkg_resources
-        try:
-            self.ac_version = pkg_resources.get_distribution('astronomer-certified').version
-        except pkg_resources.DistributionNotFound:
-            # Try to work out ac_version from airflow version
-            self.ac_version = AIRFLOW_VERSION.replace('+astro.', '-')
+        self.ac_version = get_ac_version()
 
         # On start up sleep for a small amount of time (to give the scheduler time to start up properly)
         rand_delay = random.uniform(5, 20)
@@ -219,7 +214,10 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
                 AstronomerAvailableVersion.hidden_from_ui.is_(False)
             )
 
+            ac_version = version.parse(get_ac_version())
             for rel in sorted(available_releases, key=lambda v: version.parse(v.version), reverse=True):
+                if ac_version >= version.parse(rel.version):
+                    return None
                 # For simplicity in the UI, only show the latest version that is available
                 return {
                     'level': rel.level,
@@ -285,3 +283,13 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         self.app_context_processor(self.new_template_vars)
 
         super().register(app, options, first_registration)
+
+
+def get_ac_version():
+    import pkg_resources
+    try:
+        ac_version = pkg_resources.get_distribution('astronomer-certified').version
+    except pkg_resources.DistributionNotFound:
+        # Try to work out ac_version from airflow version
+        ac_version = AIRFLOW_VERSION.replace('+astro.', '-')
+    return ac_version
