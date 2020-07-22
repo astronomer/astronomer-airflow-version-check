@@ -43,13 +43,13 @@ class AstronomerVersionCheck(Base):
     @classmethod
     def acquire_lock(cls, check_interval, session):  # type: (datetime.timedelta, sqlalchemy.Session) -> Optional[AstronomerVersionCheck]
         """
-        Aquire an exclusive lock to perform an update check if the check is due
+        Acquire an exclusive lock to perform an update check if the check is due
         and if another check is not already in progress.
 
         We use the database to hold the lock for as long as this transaction is open using `FOR UPDATE SKIP LOCKED`.
 
         This method will either return a row meaning the check is due and we
-        have acuired the lock. The lock will be held for the duration of the
+        have acquired the lock. The lock will be held for the duration of the
         database transaction -- be careful to to close this before you are
         done!
 

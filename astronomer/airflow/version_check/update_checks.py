@@ -26,7 +26,7 @@ except ImportError:
     from airflow.www.decorators import action_logging
 
 
-# Code is placed in this file as the default Airlow logging config shows the
+# Code is placed in this file as the default Airflow logging config shows the
 # file name (not the logger name) so this prefixes our log messages with
 # "update_checks.py"
 
