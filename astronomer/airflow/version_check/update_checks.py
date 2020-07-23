@@ -26,7 +26,7 @@ except ImportError:
     from airflow.www.decorators import action_logging
 
 
-# Code is placed in this file as the default Airlow logging config shows the
+# Code is placed in this file as the default Airflow logging config shows the
 # file name (not the logger name) so this prefixes our log messages with
 # "update_checks.py"
 
@@ -60,12 +60,9 @@ class CheckThread(threading.Thread, LoggingMixin):
             self.log.info("Update checks disabled")
             return
 
-        import pkg_resources
-        try:
-            self.ac_version = pkg_resources.get_distribution('astronomer-certified').version
-        except pkg_resources.DistributionNotFound:
-            # Try to work out ac_version from airflow version
-            self.ac_version = AIRFLOW_VERSION.replace('+astro.', '-')
+        self.ac_version = get_ac_version()
+
+        self.hide_old_versions()
 
         # On start up sleep for a small amount of time (to give the scheduler time to start up properly)
         rand_delay = random.uniform(5, 20)
@@ -82,6 +79,21 @@ class CheckThread(threading.Thread, LoggingMixin):
                 wake_up_in = 3600
 
             time.sleep(wake_up_in)
+
+    @staticmethod
+    def hide_old_versions():
+        """Hide Old Versions from displaying in the UI"""
+        from .models import AstronomerAvailableVersion
+
+        with create_session() as session:
+            available_releases = session.query(AstronomerAvailableVersion).filter(
+                AstronomerAvailableVersion.hidden_from_ui.is_(False)
+            )
+
+            ac_version = version.parse(get_ac_version())
+            for rel in available_releases:
+                if ac_version >= version.parse(rel.version):
+                    rel.hidden_from_ui = True
 
     def check_for_update(self):
         """
@@ -285,3 +297,13 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         self.app_context_processor(self.new_template_vars)
 
         super().register(app, options, first_registration)
+
+
+def get_ac_version():
+    import pkg_resources
+    try:
+        ac_version = pkg_resources.get_distribution('astronomer-certified').version
+    except pkg_resources.DistributionNotFound:
+        # Try to work out ac_version from airflow version
+        ac_version = AIRFLOW_VERSION.replace('+astro.', '-')
+    return ac_version

@@ -45,8 +45,8 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
         with create_session() as session:
             engine = session.get_bind(mapper=None, clause=None)
             if not engine.has_table(AstronomerVersionCheck.__tablename__):
-                log.warn("AstronomerVersionCheck tables are missing (plugin not installed at upgradedb "
-                         "time?). No update checks will be performed")
+                log.warning("AstronomerVersionCheck tables are missing (plugin not installed at upgradedb "
+                            "time?). No update checks will be performed")
                 return
 
         AstronomerVersionCheck.ensure_singleton()
