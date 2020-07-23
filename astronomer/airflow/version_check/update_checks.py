@@ -3,10 +3,12 @@ import json
 import os
 import platform
 import random
+import sys
 import threading
 import time
 from datetime import timedelta
 
+import distro
 import lazy_object_proxy
 import pendulum
 import requests
@@ -324,6 +326,17 @@ def get_user_string_data():
             "store_serialized_dags": conf.get("core", "store_serialized_dags", fallback=None),
         }
     }
+
+    if sys.platform.startswith("linux"):
+        distro_infos = dict(filter(
+            lambda x: x[1],
+            zip(["name", "version", "id"], distro.linux_distribution()),
+        ))
+        if distro_infos:
+            data["distro"] = distro_infos
+
+    if sys.platform.startswith("darwin") and platform.mac_ver()[0]:
+        data["distro"] = {"name": "macOS", "version": platform.mac_ver()[0]}
 
     if platform.system():
         data.setdefault("system", {})["name"] = platform.system()
