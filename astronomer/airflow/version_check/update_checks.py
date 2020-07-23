@@ -1,5 +1,7 @@
 import enum
+import json
 import os
+import platform
 import random
 import threading
 import time
@@ -197,13 +199,14 @@ class CheckThread(threading.Thread, LoggingMixin):
         }
 
     def _get_update_json(self):  # pylint: disable=E0202
+        json_data = get_user_string_data()
         r = requests.get(
             self.update_url,
             timeout=self.request_timeout,
             params={
                 'site': self.base_url,
             },
-            headers={'User-Agent': f'airflow/{self.ac_version}'}
+            headers={'User-Agent': f'airflow/{self.ac_version} {json_data}'}
         )
 
         r.raise_for_status()
@@ -307,3 +310,30 @@ def get_ac_version():
         # Try to work out ac_version from airflow version
         ac_version = AIRFLOW_VERSION.replace('+astro.', '-')
     return ac_version
+
+
+def get_user_string_data():
+
+    data = {
+        "python": platform.python_version(),
+        "implementation": {
+            "name": platform.python_implementation(),
+        },
+        "airflow_configs": {
+            "executor": conf.get("core", "executor", fallback=None),
+            "store_serialized_dags": conf.get("core", "store_serialized_dags", fallback=None),
+        }
+    }
+
+    if platform.system():
+        data.setdefault("system", {})["name"] = platform.system()
+
+    if platform.release():
+        data.setdefault("system", {})["release"] = platform.release()
+
+    if platform.machine():
+        data["cpu"] = platform.machine()
+
+    data["ci"] = True if any(name in os.environ for name in ['BUILD_BUILDID', 'BUILD_ID', 'CI']) else None
+
+    return json.dumps(data, separators=(",", ":"), sort_keys=True)
