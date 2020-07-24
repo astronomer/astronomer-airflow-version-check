@@ -10,7 +10,7 @@ from airflow.utils.db import create_session
 from airflow.utils.net import get_hostname
 from airflow.utils.timezone import utcnow
 from airflow.utils.sqlalchemy import UtcDateTime
-from sqlalchemy import Boolean, Column, Index, Text, or_
+from sqlalchemy import Boolean, Column, Index, String, Text, or_
 
 log = logging.getLogger(__name__)
 
@@ -80,7 +80,7 @@ class AstronomerVersionCheck(Base):
 
 class AstronomerAvailableVersion(Base):
     __tablename__ = "astro_available_version"
-    version = Column(Text, nullable=False, primary_key=True)
+    version = Column(String(255), nullable=False, primary_key=True)
     level = Column(Text, nullable=False)
     date_released = Column(UtcDateTime(timezone=True), nullable=False)
     description = Column(Text)
