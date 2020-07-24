@@ -58,7 +58,8 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
         with create_session() as session:
             try:
                 engine = session.get_bind(mapper=None, clause=None)
-                if not engine.has_table(AstronomerVersionCheck.__tablename__):
+                if not engine.has_table(AstronomerVersionCheck.__tablename__) or \
+                        not engine.has_table(AstronomerAvailableVersion.__tablename__):
                     log.info("Creating DB tables for %s", __name__)
                     metadata = AstronomerVersionCheck.metadata
                     metadata.create_all(bind=engine, tables=[
