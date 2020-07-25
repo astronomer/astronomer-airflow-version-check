@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 1.0.2
+
+Released 2020-07-25
+
+- Stop showing notice if the current AC Version is already latest (#14)
+
 ## Version 1.0.1
 
 - Don't stop airflow running when plugin's DB tables haven't been created (#1)
