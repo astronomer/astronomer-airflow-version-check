@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 1.0.3
+
+Released 2020-07-27
+
+- Make the plugin MySQL compatible (#16)
+
 ## Version 1.0.2
 
 Released 2020-07-25
