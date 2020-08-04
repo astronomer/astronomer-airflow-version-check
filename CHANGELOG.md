@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 1.0.4
+
+Released 2020-08-04
+
+- Add more data to UserAgent on Updater Service requests (#15)
+
 ## Version 1.0.3
 
 Released 2020-07-27
