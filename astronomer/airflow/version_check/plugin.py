@@ -1,6 +1,7 @@
 import functools
 import logging
 
+from airflow.configuration import conf
 from airflow.plugins_manager import AirflowPlugin
 from airflow.utils.db import create_session
 
@@ -31,6 +32,11 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
     def on_load(cls, *args, **kwargs):
         # Hook in to various places in Airflow in a slightly horrible way -- by
         # using functools.wraps and replacing the function.
+
+        if conf.getint("astronomer", "update_check_interval", fallback=24 * 60 * 60) == "0":
+            log.debug(
+                "Skipping running update_check_plugin as [astronomer] update_check_interval = 0")
+            return
 
         import airflow.utils.db
         import airflow.jobs.scheduler_job
