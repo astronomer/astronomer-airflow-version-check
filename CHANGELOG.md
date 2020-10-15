@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 1.0.5
+
+Released 2020-10-15
+
+- Make the version check plugin Airflow 2.0 compatible (#17)
+- Pin attrs to less tha 20.0 (#19) 
+- Skip creating table & spawning thread if `update_check_interval=0` (#18)
+
 ## Version 1.0.4
 
 Released 2020-08-04
