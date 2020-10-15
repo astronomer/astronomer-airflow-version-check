@@ -8,3 +8,5 @@ wheel
 astronomer-certified==1.10.7.*
 
 -e .[test]
+
+attrs<20.0
