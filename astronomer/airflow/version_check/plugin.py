@@ -1,6 +1,7 @@
 import functools
 import logging
 
+from airflow.configuration import conf
 from airflow.plugins_manager import AirflowPlugin
 from airflow.utils.db import create_session
 
@@ -10,11 +11,13 @@ __version__ = "1.0.4"
 
 log = logging.getLogger(__name__)
 
+update_check_interval = conf.getint("astronomer", "update_check_interval", fallback=24 * 60 * 60)
+
 
 class AstronomerVersionCheckPlugin(AirflowPlugin):
     name = "astronomer_version_check"
 
-    flask_blueprints = [UpdateAvailableBlueprint()]
+    flask_blueprints = [UpdateAvailableBlueprint()] if update_check_interval != 0 else []
 
     @staticmethod
     def add_before_call(mod_or_cls, target, pre_fn):
@@ -31,6 +34,10 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
     def on_load(cls, *args, **kwargs):
         # Hook in to various places in Airflow in a slightly horrible way -- by
         # using functools.wraps and replacing the function.
+
+        if update_check_interval == 0:
+            log.debug("Skipping running update_check_plugin as [astronomer] update_check_interval = 0")
+            return
 
         import airflow.utils.db
         import airflow.jobs.scheduler_job
