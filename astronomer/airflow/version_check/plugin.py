@@ -11,11 +11,13 @@ __version__ = "1.0.4"
 
 log = logging.getLogger(__name__)
 
+update_check_interval = conf.getint("astronomer", "update_check_interval", fallback=24 * 60 * 60)
+
 
 class AstronomerVersionCheckPlugin(AirflowPlugin):
     name = "astronomer_version_check"
 
-    flask_blueprints = [UpdateAvailableBlueprint()]
+    flask_blueprints = [UpdateAvailableBlueprint()] if update_check_interval != 0 else []
 
     @staticmethod
     def add_before_call(mod_or_cls, target, pre_fn):
@@ -33,9 +35,8 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
         # Hook in to various places in Airflow in a slightly horrible way -- by
         # using functools.wraps and replacing the function.
 
-        if conf.getint("astronomer", "update_check_interval", fallback=24 * 60 * 60) == "0":
-            log.debug(
-                "Skipping running update_check_plugin as [astronomer] update_check_interval = 0")
+        if update_check_interval == 0:
+            log.debug("Skipping running update_check_plugin as [astronomer] update_check_interval = 0")
             return
 
         import airflow.utils.db
