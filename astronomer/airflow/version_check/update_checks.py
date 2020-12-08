@@ -46,7 +46,8 @@ class CheckThread(threading.Thread, LoggingMixin):
     def __init__(self):
         super().__init__(name="AstronomerCEAVersionCheckThread", daemon=True)
         # Check once a day by default
-        self.check_interval = timedelta(seconds=conf.getint("astronomer", "update_check_interval", fallback=24*60*60))
+        self.check_interval_secs = conf.getint("astronomer", "update_check_interval", fallback=24*60*60)
+        self.check_interval = timedelta(seconds=self.check_interval_secs)
         self.request_timeout = conf.getint("astronomer", "update_check_timeout", fallback=60)
         self.base_url = conf.get("webserver", "base_url")
 
@@ -60,7 +61,7 @@ class CheckThread(threading.Thread, LoggingMixin):
         Periodically check for new versions of Astronomer Certified Airflow,
         and update the AstronomerAvailableVersions table
         """
-        if self.check_interval == 0:
+        if self.check_interval_secs == 0:
             self.log.info("Update checks disabled")
             return
 
