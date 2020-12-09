@@ -10,3 +10,5 @@ astronomer-certified==1.10.7.*
 -e .[test]
 
 attrs<20.0
+marshmallow-sqlalchemy==0.23.0
+marshmallow<=2.21.0
