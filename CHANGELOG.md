@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 1.0.6
+
+Released 2020-12-14
+
+- Fix disabling update_check_interval checks (#21)
+- Replace 2.0 Appbuilder base template (#22)
+
 ## Version 1.0.5
 
 Released 2020-10-15
