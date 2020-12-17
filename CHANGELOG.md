@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 1.0.7
+
+Released 2020-12-17
+
+- Fix issue with Session being closed (#23)
+
 ## Version 1.0.6
 
 Released 2020-12-14
