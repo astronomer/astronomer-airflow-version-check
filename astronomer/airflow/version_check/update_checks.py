@@ -13,9 +13,10 @@ import lazy_object_proxy
 import pendulum
 import requests
 import sqlalchemy.exc
-from flask import Blueprint
+from flask import Blueprint, current_app
 from flask_appbuilder.api import BaseApi, expose
 from flask_appbuilder.security.decorators import protect
+from flask_sqlalchemy import get_state
 from packaging import version
 
 from airflow.configuration import conf
@@ -232,20 +233,20 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
     def available_update(self):
         from .models import AstronomerAvailableVersion
 
-        with create_session() as session:
-            available_releases = session.query(AstronomerAvailableVersion).filter(
-                AstronomerAvailableVersion.hidden_from_ui.is_(False)
-            )
+        session = get_state(app=current_app).db.session
+        available_releases = session.query(AstronomerAvailableVersion).filter(
+            AstronomerAvailableVersion.hidden_from_ui.is_(False)
+        )
 
-            for rel in sorted(available_releases, key=lambda v: version.parse(v.version), reverse=True):
-                # For simplicity in the UI, only show the latest version that is available
-                return {
-                    'level': rel.level,
-                    'date_released': rel.date_released,
-                    'description': rel.description,
-                    'version': rel.version,
-                    'url': rel.url,
-                }
+        for rel in sorted(available_releases, key=lambda v: version.parse(v.version), reverse=True):
+            # For simplicity in the UI, only show the latest version that is available
+            return {
+                'level': rel.level,
+                'date_released': rel.date_released,
+                'description': rel.description,
+                'version': rel.version,
+                'url': rel.url,
+            }
         return None
 
     def new_template_vars(self):
@@ -306,10 +307,14 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
 
 
 def get_ac_version():
-    import pkg_resources
     try:
-        ac_version = pkg_resources.get_distribution('astronomer-certified').version
-    except pkg_resources.DistributionNotFound:
+        import importlib_metadata
+    except ImportError:
+        from importlib import metadata as importlib_metadata
+
+    try:
+        ac_version = importlib_metadata.version('astronomer-certified')
+    except importlib_metadata.PackageNotFoundError:
         # Try to work out ac_version from airflow version
         ac_version = AIRFLOW_VERSION.replace('+astro.', '-')
     return ac_version

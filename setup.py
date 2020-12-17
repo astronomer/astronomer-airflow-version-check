@@ -90,6 +90,7 @@ setup(
         'distro~=1.5',
         'lazy_object_proxy~=1.3',
         'packaging>=20.0',
+        'importlib_metadata;python_version<"3.9"'
     ],
     setup_requires=[
         'pytest-runner~=4.0',
