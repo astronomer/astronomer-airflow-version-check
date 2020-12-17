@@ -233,7 +233,6 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
     def available_update(self):
         from .models import AstronomerAvailableVersion
 
-
         session = get_state(app=current_app).db.session
         available_releases = session.query(AstronomerAvailableVersion).filter(
             AstronomerAvailableVersion.hidden_from_ui.is_(False)
