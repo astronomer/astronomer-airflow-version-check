@@ -300,7 +300,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         else:
             self.log.warning("Not replacing appbuilder.base_template, it didn't have the expected value. Update"
                              " available messages will not be visible in UI")
-        app.appbuilder.add_api(self.UpdateAvailable)
+        app.appbuilder.add_view_no_menu(self.UpdateAvailable)
         self.app_context_processor(self.new_template_vars)
 
         super().register(app, options, first_registration)
