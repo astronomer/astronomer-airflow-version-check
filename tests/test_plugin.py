@@ -5,6 +5,7 @@ from flask import url_for
 
 def test_plugin_registered():
     """Verify that the plugin is registered"""
+    plugins_manager.ensure_plugins_loaded()
     assert len(plugins_manager.plugins) == 1
     assert plugins_manager.plugins[0].name == 'astronomer_version_check'
     assert plugins_manager.plugins[0].flask_blueprints != []
