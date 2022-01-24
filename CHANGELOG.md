@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 1.0.8
+
+Released 2022-01-24
+
+- Use `add_view_no_menu since add_api` is removed in airflow (#24)
+- Fix CI issues and Bump dev requirements (#26)
+
 ## Version 1.0.7
 
 Released 2020-12-17
