@@ -12,13 +12,13 @@ workflows:
           filters:  # required since `deploy` has tag filters AND requires `build`
             tags:
               only: /.*/
-      - publish:
+      - verify:
           context: "Pip Deploy"
           requires: [build]
           # Run this stage only for version-number tagged builds
           filters:
-            tags:
-              only: /^v\d+[.\d]+.*/
+#            tags:
+#              only: /^v\d+[.\d]+.*/
             branches:
               ignore: /.*/
 jobs:
@@ -65,7 +65,7 @@ jobs:
       - store_artifacts:
           path: test-results
 
-  publish:
+  verify:
     docker:
       - image: gcr.io/google.com/cloudsdktool/cloud-sdk:alpine
     steps:
@@ -80,20 +80,20 @@ jobs:
             python3 setup.py verify
       - attach_workspace:
           at: /tmp/workspace
-      - run:
-          name: Checkout release-utilities
-          command: |-
-            git clone git@github.com:astronomer/pip-release-utilities.git
-      - run:
-          name: Deploy to GCS Bucket
-          # Even though there is a project field in the JSON credential, gsutil still needs a project set, so lets set pull it from it
-          command: |-
-            pip-release-utilities/gsutil-auth-helper.sh
-            gsutil -m rsync -a public-read /tmp/workspace/dist/ gs://<< pipeline.parameters.deploy_bucket >>/simple/astronomer-airflow-version-check
-      - run:
-          name: Rebuild index.html
-          command: |-
-            pip-release-utilities/build-index-page.sh "<< pipeline.parameters.deploy_bucket >>" simple/astronomer-airflow-version-check
-      - store_artifacts:
-          path: /tmp/workspace/dist/
-          destination: dist
+#      - run:
+#          name: Checkout release-utilities
+#          command: |-
+#            git clone git@github.com:astronomer/pip-release-utilities.git
+#      - run:
+#          name: Deploy to GCS Bucket
+#          # Even though there is a project field in the JSON credential, gsutil still needs a project set, so lets set pull it from it
+#          command: |-
+#            pip-release-utilities/gsutil-auth-helper.sh
+#            gsutil -m rsync -a public-read /tmp/workspace/dist/ gs://<< pipeline.parameters.deploy_bucket >>/simple/astronomer-airflow-version-check
+#      - run:
+#          name: Rebuild index.html
+#          command: |-
+#            pip-release-utilities/build-index-page.sh "<< pipeline.parameters.deploy_bucket >>" simple/astronomer-airflow-version-check
+#      - store_artifacts:
+#          path: /tmp/workspace/dist/
+#          destination: dist
