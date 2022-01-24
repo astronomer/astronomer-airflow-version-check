@@ -35,10 +35,10 @@ def app():
     os.environ['AIRFLOW__CORE__SQL_ALCHEMY_CONN'] = 'sqlite:///testdb.sqlite'
     os.environ['AIRFLOW__WEBSERVER__RBAC'] = 'True'
     from airflow.utils.db import initdb
-    from airflow.www_rbac.app import create_app
+    from airflow.www.app import create_app
 
-    initdb(rbac=True)
-    app, _ = create_app(testing=True)
+    initdb()
+    app = create_app(testing=True)
     app.test_client_class = FlaskLoginClient
     return app
 
