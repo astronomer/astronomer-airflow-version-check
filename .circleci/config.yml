@@ -16,11 +16,11 @@ workflows:
           context: "Pip Deploy"
           requires: [build]
           # Run this stage only for version-number tagged builds
-          filters:
+#          filters:
 #            tags:
 #              only: /^v\d+[.\d]+.*/
-            branches:
-              ignore: /.*/
+#            branches:
+#              ignore: /.*/
 jobs:
   build:
     docker:
