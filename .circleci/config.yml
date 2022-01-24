@@ -77,7 +77,7 @@ jobs:
             # Because we are running this stage in a non-standard container we
             # need to specify the full path
             . /home/circleci/project/.venv/bin/activate
-            pip install -U setuptools
+            pip3 install -U setuptools
             python3 setup.py verify
       - attach_workspace:
           at: /tmp/workspace
