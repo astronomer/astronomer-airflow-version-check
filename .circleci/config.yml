@@ -36,7 +36,8 @@ jobs:
           name: Install test deps
           command: |
             # Use a virtual env to encapsulate everything in one folder for caching
-            python -m venv .venv
+            python3 -m venv .venv
+            pip install --upgrade pip setuptools wheel
             . .venv/bin/activate
             pip install -r dev-requirements.txt
       - save_cache:

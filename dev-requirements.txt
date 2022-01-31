@@ -1,8 +1,3 @@
-# Requirements that can't be expressed in setup.py
-wheel
-pip
-setuptools
-
 # We need our back-ported fixes to Airflow for our tests to pass
 # We need to specify the astro version here, otherwise it would install the one from pypi repo instead
 --extra-index-url=https://pip.astronomer.io/simple/
