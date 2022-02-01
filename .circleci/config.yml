@@ -27,11 +27,6 @@ jobs:
       - image: cimg/python:3.7
     steps:
       - checkout
-      - &restore_venv
-        restore_cache:
-          keys:
-            - deps-{{ .Branch }}-{{ checksum "setup.py" }}-{{ checksum "dev-requirements.txt" }}
-            - deps-master-{{ checksum "setup.py" }}-{{ checksum "dev-requirements.txt" }}
       - run:
           name: Install test deps
           command: |
@@ -39,11 +34,6 @@ jobs:
             python3 -m venv .venv
             . .venv/bin/activate
             pip install -r dev-requirements.txt
-      - save_cache:
-          key: deps-{{ .Branch }}-{{ checksum "setup.py" }}-{{ checksum "dev-requirements.txt" }}
-          paths:
-            - ".venv"
-            - "~/.cache"
       - run:
           name: run_tests
           command: |
@@ -70,14 +60,20 @@ jobs:
       - image: gcr.io/google.com/cloudsdktool/cloud-sdk:alpine
     steps:
       - checkout
-      - *restore_venv
       - run:
           name: verify tag
           command: |-
-            # Because we are running this stage in a non-standard container we
-            # need to specify the full path
-            . /home/circleci/project/.venv/bin/activate
-            pip install --upgrade setuptools
+            # Install necessary packages and verify that the tag is correct
+            apk update && apk add python3-dev \
+                                          gcc \
+                                          libc-dev \
+                                          libffi-dev \
+                                          musl-dev \
+                                          openssl-dev \
+                                          cargo 
+            python3 -m venv .venv
+            . .venv/bin/activate
+            pip install -r dev-requirements.txt
             python3 setup.py verify
       - attach_workspace:
           at: /tmp/workspace
