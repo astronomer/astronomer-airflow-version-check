@@ -80,15 +80,19 @@ jobs:
           name: verify tag
           command: |-
             # Install necessary packages and verify that the tag is correct
+            # gcc package -> gcc (executable)
+            # g++ package -> cc1plus (executable)
+            # python3-dev package -> Python.h
+            # libffi-dev -> ffi.h
+            # musl-dev package -> limits.h
             apk update && apk add python3-dev \
-                                          gcc \
-                                          libc-dev \
-                                          libffi-dev \
-                                          musl-dev \
-                                          openssl-dev \
-                                          cargo
+                                  gcc \
+                                  g++ \
+                                  libffi-dev \
+                                  musl-dev
             python3 -m venv .venv
             . .venv/bin/activate
+            pip install --upgrade pip setuptools wheel
             pip install -r dev-requirements.txt
             python3 setup.py verify
       - attach_workspace:
