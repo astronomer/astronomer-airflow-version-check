@@ -234,6 +234,24 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         from .models import AstronomerAvailableVersion
 
         session = get_state(app=current_app).db.session
+        
+        ac_version = version.parse(get_ac_version())
+        main_part = ac_version.split('.post')[0]
+        nearest_release = session.query(AstronomerAvailableVersion).filter(
+            AstronomerAvailableVersion.version.like(f'{main_part}%')
+        ).filter(
+            AstronomerAvailableVersion.hidden_from_ui.is_(False)
+        ).order_by(AstronomerAvailableVersion.date_released.desc()).first()
+        
+        if nearest_release:
+            return {
+                'level': nearest_release.level,
+                'date_released': nearest_release.date_released,
+                'description': nearest_release.description,
+                'version': nearest_release.version,
+                'url': nearest_release.url,
+            } 
+
         available_releases = session.query(AstronomerAvailableVersion).filter(
             AstronomerAvailableVersion.hidden_from_ui.is_(False)
         )
