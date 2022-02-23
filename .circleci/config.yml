@@ -9,7 +9,6 @@ workflows:
   build_and_deploy:
     jobs:
       - build:
-          requires: [static_checks]
           filters:  # required since `deploy` has tag filters AND requires `build`
             tags:
               only: /.*/
