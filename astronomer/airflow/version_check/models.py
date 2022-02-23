@@ -41,7 +41,8 @@ class AstronomerVersionCheck(Base):
                 session.rollback()
 
     @classmethod
-    def acquire_lock(cls, check_interval, session):  # type: (datetime.timedelta, sqlalchemy.Session) -> Optional[AstronomerVersionCheck]
+    def acquire_lock(cls, check_interval, session):
+        # type: (datetime.timedelta, sqlalchemy.Session) -> Optional[AstronomerVersionCheck]
         """
         Acquire an exclusive lock to perform an update check if the check is due
         and if another check is not already in progress.
@@ -57,10 +58,15 @@ class AstronomerVersionCheck(Base):
         """
         now = utcnow()
 
-        return session.query(cls).filter(
-            cls.singleton.is_(True),
-            or_(cls.last_checked.is_(None), cls.last_checked <= now - check_interval),
-        ).with_for_update(nowait=True).one_or_none()
+        return (
+            session.query(cls)
+            .filter(
+                cls.singleton.is_(True),
+                or_(cls.last_checked.is_(None), cls.last_checked <= now - check_interval),
+            )
+            .with_for_update(nowait=True)
+            .one_or_none()
+        )
 
     @classmethod
     def get(cls, session):
@@ -71,11 +77,7 @@ class AstronomerVersionCheck(Base):
 
     @staticmethod
     def host_identifier():
-        return "{hostname}-{pid}#{tid}".format(
-            hostname=get_hostname(),
-            pid=os.getpid(),
-            tid=threading.get_ident()
-        )
+        return f"{get_hostname()}-{os.getpid()}#{threading.get_ident()}"
 
 
 @provide_session
@@ -100,6 +102,4 @@ class AstronomerAvailableVersion(Base):
     url = Column(Text)
     hidden_from_ui = Column(Boolean, default=False, nullable=False)
 
-    __table_args__ = (
-        Index('idx_astro_available_version_hidden', hidden_from_ui),
-    )
+    __table_args__ = (Index('idx_astro_available_version_hidden', hidden_from_ui),)

@@ -12,12 +12,12 @@ def pytest_configure(config):
 def client(app, user, request):
     """The test client, optionally logged in as a user of the given role
 
-        @pytest.mark.login_as('Admin')
-        def test_while_logged_in(client):
-            ....
+    @pytest.mark.login_as('Admin')
+    def test_while_logged_in(client):
+        ....
 
-        def test_while_anon(clinet):
-            ...
+    def test_while_anon(clinet):
+        ...
 
     """
     marker = request.node.get_closest_marker('login_as')
@@ -67,6 +67,7 @@ def user(appbuilder):
         user = appbuilder.sm.find_user(username=username)
 
         return user
+
     return _user
 
 
@@ -82,7 +83,7 @@ class FlaskLoginClient(FlaskClient):
         user = kwargs.pop("user", None)
         fresh = kwargs.pop("fresh_login", True)
 
-        super(FlaskLoginClient, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if user:
             with self.session_transaction() as sess:

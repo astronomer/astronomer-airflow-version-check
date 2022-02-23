@@ -41,13 +41,16 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
 
         import airflow.utils.db
         import airflow.jobs.scheduler_job
+
         cls.add_before_call(airflow.utils.db, 'upgradedb', cls.create_db_tables)
         try:
             cls.add_before_call(
-                airflow.jobs.scheduler_job.SchedulerJob, '_execute_helper', cls.start_update_thread)
+                airflow.jobs.scheduler_job.SchedulerJob, '_execute_helper', cls.start_update_thread
+            )
         except AttributeError:
             cls.add_before_call(
-                airflow.jobs.scheduler_job.SchedulerJob, '_run_scheduler_loop', cls.start_update_thread)
+                airflow.jobs.scheduler_job.SchedulerJob, '_run_scheduler_loop', cls.start_update_thread
+            )
 
     @classmethod
     def start_update_thread(cls):
@@ -57,8 +60,10 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
         with create_session() as session:
             engine = session.get_bind(mapper=None, clause=None)
             if not engine.has_table(AstronomerVersionCheck.__tablename__):
-                log.warning("AstronomerVersionCheck tables are missing (plugin not installed at upgradedb "
-                            "time?). No update checks will be performed")
+                log.warning(
+                    "AstronomerVersionCheck tables are missing (plugin not installed at upgradedb "
+                    "time?). No update checks will be performed"
+                )
                 return
 
         AstronomerVersionCheck.ensure_singleton()
@@ -67,16 +72,22 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
     @classmethod
     def create_db_tables(cls):
         from .models import AstronomerAvailableVersion, AstronomerVersionCheck
+
         with create_session() as session:
             try:
                 engine = session.get_bind(mapper=None, clause=None)
-                if not engine.has_table(AstronomerVersionCheck.__tablename__) or \
-                        not engine.has_table(AstronomerAvailableVersion.__tablename__):
+                if not engine.has_table(AstronomerVersionCheck.__tablename__) or not engine.has_table(
+                    AstronomerAvailableVersion.__tablename__
+                ):
                     log.info("Creating DB tables for %s", __name__)
                     metadata = AstronomerVersionCheck.metadata
-                    metadata.create_all(bind=engine, tables=[
-                        metadata.tables[c.__tablename__] for c in [AstronomerVersionCheck, AstronomerAvailableVersion]
-                    ])
+                    metadata.create_all(
+                        bind=engine,
+                        tables=[
+                            metadata.tables[c.__tablename__]
+                            for c in [AstronomerVersionCheck, AstronomerAvailableVersion]
+                        ],
+                    )
                     log.info("Created")
             except Exception:
                 log.exception("Error creating tables")
