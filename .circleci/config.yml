@@ -9,6 +9,7 @@ workflows:
   build_and_deploy:
     jobs:
       - build:
+          requires: [static_checks]
           filters:  # required since `deploy` has tag filters AND requires `build`
             tags:
               only: /.*/
@@ -41,6 +42,20 @@ jobs:
             mkdir test-results
             pytest --junitxml=test-results/junit.xml
       - run:
+          command: |
+            cp .pre-commit-config.yaml pre-commit-cache-key.txt
+            python --version --version >> pre-commit-cache-key.txt
+      - restore_cache:
+          keys:
+            - v1-pc-cache-{{ checksum "pre-commit-cache-key.txt" }}
+      - run:
+          command: |
+            pre-commit run --diff-on-failure --all-files
+      - save_cache:
+          key: v1-pc-cache-{{ checksum "pre-commit-cache-key.txt" }}
+          paths:
+            - ~/.cache/pre-commit
+      - run:
           name: build_wheel
           command: |
             . .venv/bin/activate
@@ -70,7 +85,7 @@ jobs:
                                           libffi-dev \
                                           musl-dev \
                                           openssl-dev \
-                                          cargo 
+                                          cargo
             python3 -m venv .venv
             . .venv/bin/activate
             pip install -r dev-requirements.txt

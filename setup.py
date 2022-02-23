@@ -32,6 +32,7 @@ def desc():
 # Cribbed from https://circleci.com/blog/continuously-deploying-python-packages-to-pypi-with-circleci/
 class VerifyVersionCommand(Command):
     """Custom command to verify that the git tag matches our version"""
+
     description = 'verify that the git tag matches our version'
     user_options = []
 
@@ -45,9 +46,7 @@ class VerifyVersionCommand(Command):
         tag = os.getenv('CIRCLE_TAG')
 
         if tag != "v" + VERSION:
-            info = "Git tag: {0} does not match the version of this app: v{1}".format(
-                tag, VERSION
-            )
+            info = f"Git tag: {tag} does not match the version of this app: v{VERSION}"
             exit(info)
 
 
@@ -83,14 +82,16 @@ setup(
     zip_safe=True,
     platforms='any',
     entry_points={
-        'airflow.plugins': ['astronomer_version_check=astronomer.airflow.version_check.plugin:AstronomerVersionCheckPlugin']
+        'airflow.plugins': [
+            'astronomer_version_check=astronomer.airflow.version_check.plugin:AstronomerVersionCheckPlugin'
+        ]
     },
     install_requires=[
         'astronomer-certified>=1.10.7',
         'distro~=1.5',
         'lazy_object_proxy~=1.3',
         'packaging>=20.0',
-        'importlib_metadata;python_version<"3.9"'
+        'importlib_metadata;python_version<"3.9"',
     ],
     setup_requires=[
         'pytest-runner~=5.3',

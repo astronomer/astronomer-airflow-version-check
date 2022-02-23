@@ -47,12 +47,14 @@ class CheckThread(threading.Thread, LoggingMixin):
     def __init__(self):
         super().__init__(name="AstronomerCEAVersionCheckThread", daemon=True)
         # Check once a day by default
-        self.check_interval_secs = conf.getint("astronomer", "update_check_interval", fallback=24*60*60)
+        self.check_interval_secs = conf.getint("astronomer", "update_check_interval", fallback=24 * 60 * 60)
         self.check_interval = timedelta(seconds=self.check_interval_secs)
         self.request_timeout = conf.getint("astronomer", "update_check_timeout", fallback=60)
         self.base_url = conf.get("webserver", "base_url")
 
-        self.update_url = conf.get("astronomer", "update_url", fallback="https://updates.astronomer.io/astronomer-certified")
+        self.update_url = conf.get(
+            "astronomer", "update_url", fallback="https://updates.astronomer.io/astronomer-certified"
+        )
 
         if conf.getboolean('astronomer', '_fake_check', fallback=False):
             self._get_update_json = self._make_fake_response
@@ -123,7 +125,10 @@ class CheckThread(threading.Thread, LoggingMixin):
                 self.log.debug("Next check not due until %s (%s seconds away)", next_check, how_long)
                 return UpdateResult.NOT_DUE, how_long
 
-            self.log.info("Checking for new version of Astronomer Certified Airflow, previous check was performed at %s", lock.last_checked)
+            self.log.info(
+                "Checking for new version of Astronomer Certified Airflow, previous check was performed at %s",
+                lock.last_checked,
+            )
 
             lock.last_checked = utcnow()
             lock.last_checked_by = lock.host_identifier()
@@ -158,7 +163,10 @@ class CheckThread(threading.Thread, LoggingMixin):
 
         current_version = version.parse(self.ac_version)
 
-        self.log.debug("Raw versions in update document: %r", list(r['version'] for r in update_document.get('available_releases', [])))
+        self.log.debug(
+            "Raw versions in update document: %r",
+            list(r['version'] for r in update_document.get('available_releases', [])),
+        )
 
         def parse_version(rel):
             rel['parsed_version'] = version.parse(rel['version'])
@@ -170,7 +178,11 @@ class CheckThread(threading.Thread, LoggingMixin):
             ver = version.parse(release['version'])
 
             if ver <= current_version:
-                self.log.debug("Got to a release (%s) that is older than the running version (%s) -- stopping looking for more", ver, self.ac_version)
+                self.log.debug(
+                    "Got to a release (%s) that is older than the running version (%s) -- stopping looking for more",
+                    ver,
+                    self.ac_version,
+                )
                 break
 
             if 'release_date' in release:
@@ -199,7 +211,7 @@ class CheckThread(threading.Thread, LoggingMixin):
                     'url': f'https://astronomer.io/cea/release-notes/{new_version}.html',
                     'level': 'bug_fix',
                 },
-            ]
+            ],
         }
 
     def _get_update_json(self):  # pylint: disable=E0202
@@ -210,7 +222,7 @@ class CheckThread(threading.Thread, LoggingMixin):
             params={
                 'site': self.base_url,
             },
-            headers={'User-Agent': f'airflow/{self.ac_version} {json_data}'}
+            headers={'User-Agent': f'airflow/{self.ac_version} {json_data}'},
         )
 
         r.raise_for_status()
@@ -253,7 +265,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         return {
             # Fetch it once per template render, not each time it's accessed
             'cea_update_available': lazy_object_proxy.Proxy(self.available_update),
-            'airflow_base_template': self.airflow_base_template
+            'airflow_base_template': self.airflow_base_template,
         }
 
     class UpdateAvailable(BaseApi):
@@ -270,10 +282,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
             with create_session() as session:
                 session.query(AstronomerAvailableVersion).filter(
                     AstronomerAvailableVersion.version == version,
-                ).update(
-                    {AstronomerAvailableVersion.hidden_from_ui: True},
-                    synchronize_session=False
-                )
+                ).update({AstronomerAvailableVersion.hidden_from_ui: True}, synchronize_session=False)
 
             return self.response(200)
 
@@ -283,6 +292,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         Called by Flask when registering the blueprint to the app
         """
         from .models import AstronomerVersionCheck
+
         if not hasattr(app, 'appbuilder'):
             return
 
@@ -300,8 +310,10 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         if app.appbuilder.base_template in ["airflow/master.html", "airflow/main.html"]:
             app.appbuilder.base_template = "astro-baselayout.html"
         else:
-            self.log.warning("Not replacing appbuilder.base_template, it didn't have the expected value. Update"
-                             " available messages will not be visible in UI")
+            self.log.warning(
+                "Not replacing appbuilder.base_template, it didn't have the expected value. Update"
+                " available messages will not be visible in UI"
+            )
         app.appbuilder.add_view_no_menu(self.UpdateAvailable)
         self.app_context_processor(self.new_template_vars)
 
@@ -332,14 +344,16 @@ def get_user_string_data():
         "airflow_configs": {
             "executor": conf.get("core", "executor", fallback=None),
             "store_serialized_dags": conf.get("core", "store_serialized_dags", fallback=None),
-        }
+        },
     }
 
     if sys.platform.startswith("linux"):
-        distro_infos = dict(filter(
-            lambda x: x[1],
-            zip(["name", "version", "id"], distro.linux_distribution()),
-        ))
+        distro_infos = dict(
+            filter(
+                lambda x: x[1],
+                zip(["name", "version", "id"], distro.linux_distribution()),
+            )
+        )
         if distro_infos:
             data["distro"] = distro_infos
 
