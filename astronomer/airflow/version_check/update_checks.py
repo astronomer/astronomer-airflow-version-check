@@ -250,15 +250,29 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
             AstronomerAvailableVersion.hidden_from_ui.is_(False)
         )
 
-        for rel in sorted(available_releases, key=lambda v: version.parse(v.version), reverse=True):
-            # For simplicity in the UI, only show the latest version that is available
+        ac_version = version.parse(get_ac_version())
+        base_version = ac_version.base_version
+
+        sorted_releases = sorted(available_releases, key=lambda v: version.parse(v.version), reverse=True)
+        for rel in sorted_releases:
+            if version.parse(rel.version) != ac_version and rel.version.startswith(base_version):
+                return {
+                    "level": rel.level,
+                    "date_released": rel.date_released,
+                    "description": rel.description,
+                    "version": rel.version,
+                    "url": rel.url,
+                }
+
+        if sorted_releases:
             return {
-                'level': rel.level,
-                'date_released': rel.date_released,
-                'description': rel.description,
-                'version': rel.version,
-                'url': rel.url,
+                'level': sorted_releases[0].level,
+                'date_released': sorted_releases[0].date_released,
+                'description': sorted_releases[0].description,
+                'version': sorted_releases[0].version,
+                'url': sorted_releases[0].url,
             }
+
         return None
 
     def new_template_vars(self):
