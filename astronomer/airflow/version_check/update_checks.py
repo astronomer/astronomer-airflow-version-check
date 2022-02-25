@@ -265,12 +265,13 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
                 }
 
         if sorted_releases:
+            recent_release = sorted_releases[0]
             return {
-                'level': sorted_releases[0].level,
-                'date_released': sorted_releases[0].date_released,
-                'description': sorted_releases[0].description,
-                'version': sorted_releases[0].version,
-                'url': sorted_releases[0].url,
+                'level': recent_release.level,
+                'date_released': recent_release.date_released,
+                'description': recent_release.description,
+                'version': recent_release.version,
+                'url': recent_release.url,
             }
 
         return None
