@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 1.0.9
+
+- Show available updates in a better way (#34)
+- Add pre-commit (#35)
+- Repeat 'venv' creation in publish job (#32)
+- Fix setuptools not found during publish (#31)
+- Bump CI dependencies (#28)
+
 ## Version 1.0.8
 
 Released 2022-01-24
