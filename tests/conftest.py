@@ -89,3 +89,12 @@ class FlaskLoginClient(FlaskClient):
             with self.session_transaction() as sess:
                 sess["user_id"] = user.id
                 sess["_fresh"] = fresh
+
+
+@pytest.fixture
+def session():
+    from airflow.utils.session import create_session
+
+    with create_session() as session:
+        yield session
+        session.rollback()
