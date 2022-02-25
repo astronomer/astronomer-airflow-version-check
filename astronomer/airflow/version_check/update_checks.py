@@ -255,7 +255,8 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
 
         sorted_releases = sorted(available_releases, key=lambda v: version.parse(v.version), reverse=True)
         for rel in sorted_releases:
-            if version.parse(rel.version) > ac_version and rel.base_version == base_version:
+            rel_parsed_version = version.parse(rel.version)
+            if rel_parsed_version > ac_version and rel_parsed_version.base_version == base_version:
                 return {
                     "level": rel.level,
                     "date_released": rel.date_released,
