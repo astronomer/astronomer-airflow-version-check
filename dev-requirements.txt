@@ -1,13 +1,6 @@
 # Requirements that can't be expressed in setup.py
 wheel
 
-# We need our back-ported fixes to Airflow for our tests to pass
-# We need to specify the astro version here, otherwise it would install the one from pypi repo instead
---extra-index-url=https://pip.astronomer.io/simple/
---constraint=https://raw.githubusercontent.com/astronomer/ap-airflow/master/2.2.3/bullseye/build-time-pip-constraints.txt
-astronomer-certified==2.2.3.*
+apache-airflow==2.3.3rc1
 
 -e .[test]
-
-marshmallow-sqlalchemy~=0.26.1
-marshmallow~=3.14.0

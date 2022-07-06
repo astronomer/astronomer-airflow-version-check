@@ -87,7 +87,6 @@ setup(
         ]
     },
     install_requires=[
-        'astronomer-certified>=1.10.7',
         'distro~=1.5',
         'lazy_object_proxy~=1.3',
         'packaging>=20.0',
