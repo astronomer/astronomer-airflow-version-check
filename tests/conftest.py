@@ -1,5 +1,3 @@
-import os
-
 from flask.testing import FlaskClient
 import pytest
 
@@ -32,8 +30,6 @@ def client(app, user, request):
 
 @pytest.fixture(scope='module')
 def app():
-    os.environ['AIRFLOW__CORE__SQL_ALCHEMY_CONN'] = 'sqlite:///testdb.sqlite'
-    os.environ['AIRFLOW__WEBSERVER__RBAC'] = 'True'
     from airflow.utils.db import initdb
     from airflow.www.app import create_app
 

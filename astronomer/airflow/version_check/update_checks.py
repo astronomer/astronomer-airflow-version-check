@@ -302,7 +302,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
 
             return self.response(200)
 
-    def register(self, app, options, first_registration):
+    def register(self, app, options):
         """
         Re-configure Flask to use our customized layout (that includes the call-home JS)
         Called by Flask when registering the blueprint to the app
@@ -333,7 +333,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         app.appbuilder.add_view_no_menu(self.UpdateAvailable)
         self.app_context_processor(self.new_template_vars)
 
-        super().register(app, options, first_registration)
+        super().register(app, options)
 
 
 def get_ac_version():
@@ -367,7 +367,7 @@ def get_user_string_data():
         distro_infos = dict(
             filter(
                 lambda x: x[1],
-                zip(["name", "version", "id"], distro.linux_distribution()),
+                zip(["name", "version", "id"], (distro.name(), distro.version(), distro.id())),
             )
         )
         if distro_infos:
