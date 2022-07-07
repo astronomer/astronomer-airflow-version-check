@@ -302,7 +302,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
 
             return self.response(200)
 
-    def register(self, app, options):
+    def register(self, app, *args, **kwargs):
         """
         Re-configure Flask to use our customized layout (that includes the call-home JS)
         Called by Flask when registering the blueprint to the app
@@ -333,7 +333,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         app.appbuilder.add_view_no_menu(self.UpdateAvailable)
         self.app_context_processor(self.new_template_vars)
 
-        super().register(app, options)
+        super().register(app, *args, **kwargs)
 
 
 def get_ac_version():
