@@ -83,3 +83,23 @@ def test_update_check_dont_show_update_if_no_new_version_available(mock_ac_versi
         result = blueprint.available_update()
         # Nothing would be displayed if there is no new version available
         assert result is None
+
+
+def test_plugin_table_created(app, session):
+    from airflow.cli.commands.standalone_command import standalone
+    from sqlalchemy import inspect
+    import threading
+
+    engine = session.get_bind(mapper=None, clause=None)
+    inspector = inspect(engine)
+    with app.app_context():
+        thread = threading.Thread(target=standalone, args=('webserver',))
+        thread.daemon = True
+        thread.start()
+        while thread.isAlive():
+            if inspector.has_table('task_instance'):
+                break
+        for _ in range(10):
+            x = inspector.has_table('astro_version_check')
+        assert x
+        thread.join(timeout=1)

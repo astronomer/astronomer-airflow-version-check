@@ -11,10 +11,9 @@ def test_plugin_registered():
     assert plugins_manager.plugins[0].flask_blueprints != []
 
 
-@pytest.mark.xfail(condition=True, reason="Needs deeper investigation")
 @pytest.mark.login_as('Admin')
 def test_logged_in(client):
-    response = client.get(url_for('Airflow.index'))
+    response = client.get(url_for('Airflow.index'), follow_redirects=True)
     assert response.status_code == 200
     assert b"update-notice.css" in response.data, "Ensure our template customizations are shown"
 

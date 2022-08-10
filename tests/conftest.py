@@ -6,7 +6,7 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "login_as")
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def client(app, user, request):
     """The test client, optionally logged in as a user of the given role
 

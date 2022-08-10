@@ -22,4 +22,4 @@ wheels/
 # Testing
 /.venv/
 testdb.sqlite
-env
+env/
