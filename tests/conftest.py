@@ -28,7 +28,7 @@ def client(app, user, request):
         yield client
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 def app():
     from airflow.utils.db import initdb
     from airflow.www.app import create_app
