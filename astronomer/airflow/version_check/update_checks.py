@@ -37,10 +37,13 @@ except ImportError:
 # "update_checks.py"
 
 
-def _app_name():
+def _app_name(include_airflow=False):
     if os.environ.get("ASTRONOMER_RUNTIME_VERSION", None):
         return "Astronomer Runtime"
-    return "Astronomer Certified"
+    name = "Astronomer Certified"
+    if include_airflow:
+        return name + " Airflow"
+    return name
 
 
 class UpdateResult(enum.Enum):
@@ -90,7 +93,7 @@ class CheckThread(threading.Thread, LoggingMixin):
             try:
                 update_available, wake_up_in = self.check_for_update()
                 if update_available == UpdateResult.SUCCESS_UPDATE_AVAIL:
-                    self.log.info("A new version of %s is available", _app_name())
+                    self.log.info("A new version of %s is available", _app_name(True))
                 self.log.info("Check finished, next check in %s seconds", wake_up_in)
             except Exception:
                 self.log.exception("Update check died with an exception, trying again in one hour")
@@ -137,7 +140,7 @@ class CheckThread(threading.Thread, LoggingMixin):
 
             self.log.info(
                 "Checking for new version of %s, previous check was performed at %s",
-                _app_name(),
+                _app_name(True),
                 lock.last_checked,
             )
 
@@ -218,6 +221,30 @@ class CheckThread(threading.Thread, LoggingMixin):
             )
 
     def _convert_runtime_versions(self, runtime_versions):
+        """
+        Convert the runtime update document values into the format we can
+        store in the database.
+        runtime_versions is a dict of dicts, with the keys being the version:
+             {
+                "2.1.1": {
+                    "metadata": {
+                        "airflowVersion": "2.1.1",
+                        "channel": "deprecated",
+                        "releaseDate": "2021-07-20",
+                    },
+                    "migrations": {"airflowDatabase": "true"},
+                },
+            }
+        output:
+            [{
+                "version": "2.1.1",
+                "level": "",
+                "channel": "deprecated",
+                "url": "",
+                "description": "",
+                "release_date": "2021-07-20",
+            }]
+        """
         versions = []
         for k, v in runtime_versions.items():
             metadata = v['metadata']
