@@ -165,9 +165,8 @@ class CheckThread(threading.Thread, LoggingMixin):
             return result, self.check_interval.total_seconds()
 
     def _process_update_json(self, update_document):
-        runtime = update_document.get("runtimeVersions", None)
-        if runtime:
-            return self._process_update_json_v1_0(update_document, runtime=True)
+        if 'runtime' in _app_name().lower():
+            return self._process_update_json_v1_0(update_document)
         version = update_document.get('version', None)
         if version != '1.0':
             r = repr(version) if version else '<MISSING>'
@@ -175,11 +174,11 @@ class CheckThread(threading.Thread, LoggingMixin):
 
         return self._process_update_json_v1_0(update_document)
 
-    def _process_update_json_v1_0(self, update_document, runtime=False):
+    def _process_update_json_v1_0(self, update_document):
         from .models import AstronomerAvailableVersion
 
         versions = update_document.get("available_releases", [])
-        if runtime:
+        if 'runtime' in _app_name().lower():
             versions = self._convert_runtime_versions(update_document.get("runtimeVersions", {}))
 
         current_version = version.parse(self.ac_version)
