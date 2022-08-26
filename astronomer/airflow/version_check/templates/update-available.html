@@ -4,7 +4,7 @@
     {% if "can_dismiss" | is_item_visible("UpdateAvailable") %}
       <button data-href="{{ url_for('UpdateAvailable.dismiss', version=cea_update_available.version) }}" title="Ignore this update, and hide this message from all users">&times; Ignore this update</button>
     {% endif %}
-    <p><strong>A new version of Astronomer Certified is available.</strong></p>
+    <p><strong>A new version of {{cea_update_available.app_name}} is available.</strong></p>
     <p>
     {% if cea_update_available.url %}
       <a href="{{ cea_update_available.url }}">

@@ -37,6 +37,15 @@ except ImportError:
 # "update_checks.py"
 
 
+def _app_name(include_airflow=False):
+    if os.environ.get("ASTRONOMER_RUNTIME_VERSION", None):
+        return "Astronomer Runtime"
+    name = "Astronomer Certified"
+    if include_airflow:
+        return name + " Airflow"
+    return name
+
+
 class UpdateResult(enum.Enum):
     FAILURE = enum.auto()
     NOT_DUE = enum.auto()
@@ -58,7 +67,10 @@ class CheckThread(threading.Thread, LoggingMixin):
         )
 
         if conf.getboolean('astronomer', '_fake_check', fallback=False):
-            self._get_update_json = self._make_fake_response
+            if "runtime" in _app_name().lower():
+                self._get_update_json = self._make_fake_runtime_response
+            else:
+                self._get_update_json = self._make_fake_response
 
     def run(self):
         """
@@ -81,7 +93,7 @@ class CheckThread(threading.Thread, LoggingMixin):
             try:
                 update_available, wake_up_in = self.check_for_update()
                 if update_available == UpdateResult.SUCCESS_UPDATE_AVAIL:
-                    self.log.info("A new version of Astronomer Certified Airflow is available")
+                    self.log.info("A new version of %s is available", _app_name(include_airflow=True))
                 self.log.info("Check finished, next check in %s seconds", wake_up_in)
             except Exception:
                 self.log.exception("Update check died with an exception, trying again in one hour")
@@ -127,7 +139,8 @@ class CheckThread(threading.Thread, LoggingMixin):
                 return UpdateResult.NOT_DUE, how_long
 
             self.log.info(
-                "Checking for new version of Astronomer Certified Airflow, previous check was performed at %s",
+                "Checking for new version of %s, previous check was performed at %s",
+                _app_name(include_airflow=True),
                 lock.last_checked,
             )
 
@@ -152,6 +165,8 @@ class CheckThread(threading.Thread, LoggingMixin):
             return result, self.check_interval.total_seconds()
 
     def _process_update_json(self, update_document):
+        if 'runtime' in _app_name().lower():
+            return self._process_update_json_v1_0(update_document)
         version = update_document.get('version', None)
         if version != '1.0':
             r = repr(version) if version else '<MISSING>'
@@ -162,22 +177,27 @@ class CheckThread(threading.Thread, LoggingMixin):
     def _process_update_json_v1_0(self, update_document):
         from .models import AstronomerAvailableVersion
 
+        versions = update_document.get("available_releases", [])
+        if 'runtime' in _app_name().lower():
+            versions = self._convert_runtime_versions(update_document.get("runtimeVersions", {}))
+
         current_version = version.parse(self.ac_version)
 
         self.log.debug(
             "Raw versions in update document: %r",
-            list(r['version'] for r in update_document.get('available_releases', [])),
+            list(r['version'] for r in versions),
         )
 
         def parse_version(rel):
             rel['parsed_version'] = version.parse(rel['version'])
             return rel
 
-        releases = map(parse_version, update_document.get('available_releases', []))
+        releases = map(parse_version, versions)
 
         for release in sorted(releases, key=lambda rel: rel['parsed_version'], reverse=True):
             ver = version.parse(release['version'])
-
+            if release['channel'] in ['alpha', 'beta']:  # ignore alpha & beta releases
+                continue
             if ver <= current_version:
                 self.log.debug(
                     "Got to a release (%s) that is older than the running version (%s) -- stopping looking for more",
@@ -199,6 +219,44 @@ class CheckThread(threading.Thread, LoggingMixin):
                 description=release.get('description'),
             )
 
+    def _convert_runtime_versions(self, runtime_versions):
+        """
+        Convert the runtime update document values into the format we can
+        store in the database.
+        runtime_versions is a dict of dicts, with the keys being the version:
+             {
+                "2.1.1": {
+                    "metadata": {
+                        "airflowVersion": "2.1.1",
+                        "channel": "deprecated",
+                        "releaseDate": "2021-07-20",
+                    },
+                    "migrations": {"airflowDatabase": "true"},
+                },
+            }
+        output:
+            [{
+                "version": "2.1.1",
+                "level": "",
+                "channel": "deprecated",
+                "url": "",
+                "description": "",
+                "release_date": "2021-07-20",
+            }]
+        """
+        versions = []
+        for k, v in runtime_versions.items():
+            metadata = v['metadata']
+            new_dict = {}
+            new_dict['version'] = k
+            new_dict["level"] = ""
+            new_dict["url"] = ""
+            new_dict["description"] = ""
+            new_dict['release_date'] = metadata['releaseDate']
+            new_dict['channel'] = metadata['channel']
+            versions.append(new_dict)
+        return versions
+
     def _make_fake_response(self):
         v = version.parse(self.ac_version)
 
@@ -213,6 +271,25 @@ class CheckThread(threading.Thread, LoggingMixin):
                     'level': 'bug_fix',
                 },
             ],
+        }
+
+    def _make_fake_runtime_response(self):
+        v = version.parse(self.ac_version)
+
+        new_version = f'{v.major}.{v.minor}.{v.micro}'
+
+        return {
+            'features': {},
+            'runtimeVersions': {
+                new_version: {
+                    "metadata": {
+                        "airflowVersion": "2.1.1",
+                        "channel": "deprecated",
+                        "releaseDate": "2021-07-20",
+                    },
+                    "migrations": {"airflowDatabase": "true"},
+                },
+            },
         }
 
     def _get_update_json(self):  # pylint: disable=E0202
@@ -256,14 +333,24 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
 
         sorted_releases = sorted(available_releases, key=lambda v: version.parse(v.version), reverse=True)
         for rel in sorted_releases:
+            # Only notify about the latest release if the user is in the highest patch level.
+            # On runtime:
+            # if the user is on version 5.0.6 and 5.0.8, 6.0.0 are available,
+            # notify the user about 5.0.8 and don't notify user about 6.0.0.
             rel_parsed_version = version.parse(rel.version)
-            if rel_parsed_version > ac_version and rel_parsed_version.base_version == base_version:
+            rel_parsed_base_version = rel_parsed_version.base_version
+            if "runtime" in _app_name().lower():
+                rel_parsed_base_version = rel_parsed_version.major
+                base_version = ac_version.major
+
+            if rel_parsed_version > ac_version and rel_parsed_base_version == base_version:
                 return {
                     "level": rel.level,
                     "date_released": rel.date_released,
                     "description": rel.description,
                     "version": rel.version,
                     "url": rel.url,
+                    "app_name": _app_name(),
                 }
 
         if sorted_releases:
@@ -274,6 +361,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
                 'description': recent_release.description,
                 'version': recent_release.version,
                 'url': recent_release.url,
+                "app_name": _app_name(),
             }
 
         return None
@@ -339,6 +427,9 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
 
 
 def get_ac_version():
+    runtime_version = os.environ.get("ASTRONOMER_RUNTIME_VERSION", None)
+    if runtime_version:
+        return runtime_version
     try:
         import importlib_metadata
     except ImportError:
