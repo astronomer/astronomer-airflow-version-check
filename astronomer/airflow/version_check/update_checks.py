@@ -93,7 +93,7 @@ class CheckThread(threading.Thread, LoggingMixin):
             try:
                 update_available, wake_up_in = self.check_for_update()
                 if update_available == UpdateResult.SUCCESS_UPDATE_AVAIL:
-                    self.log.info("A new version of %s is available", _app_name(True))
+                    self.log.info("A new version of %s is available", _app_name(include_airflow=True))
                 self.log.info("Check finished, next check in %s seconds", wake_up_in)
             except Exception:
                 self.log.exception("Update check died with an exception, trying again in one hour")
@@ -140,7 +140,7 @@ class CheckThread(threading.Thread, LoggingMixin):
 
             self.log.info(
                 "Checking for new version of %s, previous check was performed at %s",
-                _app_name(True),
+                _app_name(include_airflow=True),
                 lock.last_checked,
             )
 
