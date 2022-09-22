@@ -99,6 +99,8 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
         with create_session() as session:
             engine = session.get_bind(mapper=None, clause=None)
             inspector = inspect(engine)
+            if not getattr(inspector, 'has_table', None):
+                inspector = engine
             for table in tables:
                 if not inspector.has_table(table.__tablename__):
                     # return early
