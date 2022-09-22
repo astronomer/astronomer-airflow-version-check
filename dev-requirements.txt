@@ -1,6 +1,6 @@
 # Requirements that can't be expressed in setup.py
 wheel
 
-apache-airflow==2.3.2
+apache-airflow==2.3.4
 
 -e .[test]
