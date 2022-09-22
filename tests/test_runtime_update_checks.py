@@ -40,7 +40,7 @@ def test_update_check_for_image_with_newer_patch(image_version, new_patch_versio
 def test_update_check_for_image_already_on_the_highest_patch(app, session):
     from airflow.utils.db import resetdb
 
-    image_version = "5.0.0"
+    image_version = "4.2.6"  # highest patch of 4.0.0(using image that's no longer released)
     with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
         resetdb()
         vc = AstronomerVersionCheck(singleton=True)
