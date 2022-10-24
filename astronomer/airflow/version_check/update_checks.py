@@ -13,6 +13,7 @@ import lazy_object_proxy
 import pendulum
 import requests
 import sqlalchemy.exc
+from requests.exceptions import SSLError, HTTPError
 from sqlalchemy import inspect
 from flask import Blueprint, current_app
 from flask_appbuilder.api import BaseApi, expose
@@ -294,17 +295,20 @@ class CheckThread(threading.Thread, LoggingMixin):
 
     def _get_update_json(self):  # pylint: disable=E0202
         json_data = get_user_string_data()
-        r = requests.get(
-            self.update_url,
-            timeout=self.request_timeout,
-            params={
-                'site': self.base_url,
-            },
-            headers={'User-Agent': f'airflow/{self.ac_version} {json_data}'},
-        )
-
-        r.raise_for_status()
-        return r.json()
+        try:
+            r = requests.get(
+                self.update_url,
+                timeout=self.request_timeout,
+                params={
+                    'site': self.base_url,
+                },
+                headers={'User-Agent': f'airflow/{self.ac_version} {json_data}'},
+            )
+            r.raise_for_status()
+            return r.json()
+        except (SSLError, HTTPError) as e:
+            self.log.warning("Error fetching update document: %s", e)
+            pass
 
 
 class UpdateAvailableBlueprint(Blueprint, LoggingMixin):

@@ -2,6 +2,7 @@ from astronomer.airflow.version_check.models import AstronomerVersionCheck, Astr
 from astronomer.airflow.version_check.update_checks import CheckThread, UpdateAvailableBlueprint
 from unittest import mock
 import pytest
+from requests.exceptions import SSLError, HTTPError
 from packaging import version
 
 
@@ -103,3 +104,14 @@ def test_plugin_table_created(app, session):
             x = inspector.has_table('astro_version_check')
         assert x
         thread.join(timeout=1)
+
+
+@pytest.mark.parametrize("error", [SSLError, HTTPError])
+@mock.patch('astronomer.airflow.version_check.update_checks.requests.get')
+def test_request_error_catched(mock_request_get, error, app, caplog):
+
+    mock_request_get.side_effect = [error]
+    thread = CheckThread()
+    thread.ac_version = "2.0.0.post10"
+    thread._get_update_json()
+    assert "Error fetching update document:" in caplog.text
