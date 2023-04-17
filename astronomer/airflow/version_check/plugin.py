@@ -43,15 +43,24 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
         if not cls.all_table_created():
             cls.create_db_tables()
 
-        import airflow.jobs.scheduler_job
-
         try:
+            import airflow.jobs.scheduler_job
+
+            try:
+                cls.add_before_call(
+                    airflow.jobs.scheduler_job.SchedulerJob, '_execute_helper', cls.start_update_thread
+                )
+            except AttributeError:
+                cls.add_before_call(
+                    airflow.jobs.scheduler_job.SchedulerJob, '_run_scheduler_loop', cls.start_update_thread
+                )
+        except ImportError:
+            import airflow.jobs.scheduler_job_runner
+
             cls.add_before_call(
-                airflow.jobs.scheduler_job.SchedulerJob, '_execute_helper', cls.start_update_thread
-            )
-        except AttributeError:
-            cls.add_before_call(
-                airflow.jobs.scheduler_job.SchedulerJob, '_run_scheduler_loop', cls.start_update_thread
+                airflow.jobs.scheduler_job_runner.SchedulerJobRunner,
+                '_run_scheduler_loop',
+                cls.start_update_thread,
             )
 
     @classmethod
