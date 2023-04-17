@@ -17,7 +17,6 @@ from requests.exceptions import SSLError, HTTPError
 from sqlalchemy import inspect
 from flask import Blueprint, current_app
 from flask_appbuilder.api import BaseApi, expose
-from flask_appbuilder.security.decorators import protect
 from flask_sqlalchemy import get_state
 from packaging import version
 
@@ -25,6 +24,8 @@ from airflow.configuration import conf
 from airflow.utils.db import create_session
 from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow.utils.timezone import utcnow
+from airflow.www import auth
+from airflow.security import permissions
 from airflow import __version__ as AIRFLOW_VERSION
 
 try:
@@ -381,9 +382,19 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         resource_name = "update_available"
         csrf_exempt = False
         base_permissions = ['can_dismiss']
+        # A bug in Flask-AppBuilder mandates us to have a value for method_permission_name
+        # before is_item_public filter can be used.
+        method_permission_name = {
+            "dismiss": "dismiss",
+        }
+        allow_browser_login = True
 
         @expose("<path:version>/dismiss", methods=["POST"])
-        @protect(allow_browser_login=True)
+        @auth.has_access(
+            [
+                (permissions.ACTION_CAN_READ, permissions.RESOURCE_WEBSITE),
+            ]
+        )
         @action_logging
         def dismiss(self, version):
             from .models import AstronomerAvailableVersion
