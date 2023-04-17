@@ -392,7 +392,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         @expose("<path:version>/dismiss", methods=["POST"])
         @auth.has_access(
             [
-                (permissions.ACTION_CAN_READ, permissions.RESOURCE_WEBSITE),
+                (permissions.ACTION_CAN_READ, permissions.RESOURCE_ROLE),
             ]
         )
         @action_logging
