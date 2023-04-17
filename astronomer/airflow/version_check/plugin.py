@@ -8,7 +8,7 @@ from sqlalchemy import inspect
 
 from .update_checks import UpdateAvailableBlueprint
 
-__version__ = "1.0.13"
+__version__ = "1.0.14"
 
 log = logging.getLogger(__name__)
 
