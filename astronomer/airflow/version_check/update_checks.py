@@ -25,7 +25,6 @@ from airflow.utils.db import create_session
 from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow.utils.timezone import utcnow
 from airflow.www import auth
-from airflow.security import permissions
 from airflow import __version__ as AIRFLOW_VERSION
 
 try:
@@ -392,7 +391,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         @expose("<path:version>/dismiss", methods=["POST"])
         @auth.has_access(
             [
-                (permissions.ACTION_CAN_READ, permissions.RESOURCE_ROLE),
+                ("can_dismiss", 'UpdateAvailable'),
             ]
         )
         @action_logging
