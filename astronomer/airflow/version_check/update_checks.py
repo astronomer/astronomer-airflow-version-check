@@ -419,7 +419,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
 
         self.airflow_base_template = app.appbuilder.base_template
 
-        if app.appbuilder.base_template in ["airflow/master.html", "airflow/main.html"]:
+        if app.appbuilder.base_template in ["airflow/master.html", "airflow/main.html", "runtime_base.html"]:
             app.appbuilder.base_template = "astro-baselayout.html"
         else:
             self.log.warning(
