@@ -23,3 +23,5 @@ wheels/
 /.venv/
 testdb.sqlite
 env/
+.idea
+airflow.cfg

@@ -2,7 +2,7 @@ from astronomer.airflow.version_check.models import AstronomerVersionCheck, Astr
 from astronomer.airflow.version_check.update_checks import CheckThread, UpdateAvailableBlueprint
 from unittest import mock
 import pytest
-from packaging import version
+from semver import Version as version
 
 
 @pytest.fixture(autouse=True)
@@ -62,8 +62,8 @@ def test_update_check_for_image_already_on_the_highest_patch(app, session):
         assert result['version'] == highest_version[0].version
 
 
-@mock.patch('astronomer.airflow.version_check.update_checks.get_ac_version')
-def test_update_check_dont_show_update_if_no_new_version_available(mock_ac_version, app, session):
+@mock.patch('astronomer.airflow.version_check.update_checks.get_runtime_version')
+def test_update_check_dont_show_update_if_no_new_version_available(mock_runtime_version, app, session):
     from airflow.utils.db import resetdb
 
     with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": '5.0.0'}):
@@ -72,14 +72,14 @@ def test_update_check_dont_show_update_if_no_new_version_available(mock_ac_versi
         session.add(vc)
         session.commit()
         thread = CheckThread()
-        thread.ac_version = '5.0.0'
+        thread.runtime_version = '5.0.0'
         available_releases = thread._get_update_json()['runtimeVersions']
 
         latest_version = list(available_releases)[-1]
-        public = version.parse(latest_version).public
+        public = str(version.parse(latest_version))
         # Update the mock version to the highest available
-        mock_ac_version.return_value = public
-        thread.ac_version = public
+        mock_runtime_version.return_value = public
+        thread.runtime_version = public
         thread.check_for_update()
         blueprint = UpdateAvailableBlueprint()
         result = blueprint.available_update()

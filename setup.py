@@ -91,6 +91,7 @@ setup(
         'lazy_object_proxy~=1.3',
         'packaging>=20.0',
         'importlib_metadata;python_version<"3.9"',
+        'semver~=3.0.0',
     ],
     setup_requires=[
         'pytest-runner~=5.3',
