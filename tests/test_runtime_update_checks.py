@@ -76,7 +76,7 @@ def test_update_check_dont_show_update_if_no_new_version_available(mock_runtime_
         available_releases = thread._get_update_json()['runtimeVersions']
 
         latest_version = list(available_releases)[-1]
-        public = version.parse(latest_version).public
+        public = str(version.parse(latest_version))
         # Update the mock version to the highest available
         mock_runtime_version.return_value = public
         thread.runtime_version = public

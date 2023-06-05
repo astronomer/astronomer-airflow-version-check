@@ -150,9 +150,6 @@ class CheckThread(threading.Thread, LoggingMixin):
             return result, self.check_interval.total_seconds()
 
     def _process_update_json(self, update_document):
-        return self._process_update_json_v1_0(update_document)
-
-    def _process_update_json_v1_0(self, update_document):
         from .models import AstronomerAvailableVersion
 
         versions = self._convert_runtime_versions(update_document.get("runtimeVersions", {}))
