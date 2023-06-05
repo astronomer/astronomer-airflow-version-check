@@ -2,7 +2,7 @@ from astronomer.airflow.version_check.models import AstronomerVersionCheck, Astr
 from astronomer.airflow.version_check.update_checks import CheckThread, UpdateAvailableBlueprint
 from unittest import mock
 import pytest
-from packaging import version
+from semver import Version as version
 
 
 @pytest.fixture(autouse=True)
@@ -79,7 +79,7 @@ def test_update_check_dont_show_update_if_no_new_version_available(mock_runtime_
         public = version.parse(latest_version).public
         # Update the mock version to the highest available
         mock_runtime_version.return_value = public
-        thread.ac_version = public
+        thread.runtime_version = public
         thread.check_for_update()
         blueprint = UpdateAvailableBlueprint()
         result = blueprint.available_update()
