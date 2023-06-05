@@ -18,14 +18,13 @@ from sqlalchemy import inspect
 from flask import Blueprint, current_app
 from flask_appbuilder.api import BaseApi, expose
 from flask_sqlalchemy import get_state
-from packaging import version
+from semver import Version as version
 
 from airflow.configuration import conf
 from airflow.utils.db import create_session
 from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow.utils.timezone import utcnow
 from airflow.www import auth
-from airflow import __version__ as AIRFLOW_VERSION
 
 try:
     from airflow.www_rbac.decorators import action_logging
@@ -36,15 +35,6 @@ except ImportError:
 # Code is placed in this file as the default Airflow logging config shows the
 # file name (not the logger name) so this prefixes our log messages with
 # "update_checks.py"
-
-
-def _app_name(include_airflow=False):
-    if os.environ.get("ASTRONOMER_RUNTIME_VERSION", None):
-        return "Astronomer Runtime"
-    name = "Astronomer Certified"
-    if include_airflow:
-        return name + " Airflow"
-    return name
 
 
 class UpdateResult(enum.Enum):
@@ -62,16 +52,13 @@ class CheckThread(threading.Thread, LoggingMixin):
         self.check_interval = timedelta(seconds=self.check_interval_secs)
         self.request_timeout = conf.getint("astronomer", "update_check_timeout", fallback=60)
         self.base_url = conf.get("webserver", "base_url")
-
+        self.runtime_version = get_runtime_version()
         self.update_url = conf.get(
-            "astronomer", "update_url", fallback="https://updates.astronomer.io/astronomer-certified"
+            "astronomer", "update_url", fallback="https://updates.astronomer.io/astronomer-runtime"
         )
 
         if conf.getboolean('astronomer', '_fake_check', fallback=False):
-            if "runtime" in _app_name().lower():
-                self._get_update_json = self._make_fake_runtime_response
-            else:
-                self._get_update_json = self._make_fake_response
+            self._get_update_json = self._make_fake_runtime_response
 
     def run(self):
         """
@@ -81,8 +68,6 @@ class CheckThread(threading.Thread, LoggingMixin):
         if self.check_interval_secs == 0:
             self.log.info("Update checks disabled")
             return
-
-        self.ac_version = get_ac_version()
 
         self.hide_old_versions()
 
@@ -94,7 +79,7 @@ class CheckThread(threading.Thread, LoggingMixin):
             try:
                 update_available, wake_up_in = self.check_for_update()
                 if update_available == UpdateResult.SUCCESS_UPDATE_AVAIL:
-                    self.log.info("A new version of %s is available", _app_name(include_airflow=True))
+                    self.log.info("A new version of Astronomer Runtime is available")
                 self.log.info("Check finished, next check in %s seconds", wake_up_in)
             except Exception:
                 self.log.exception("Update check died with an exception, trying again in one hour")
@@ -112,9 +97,9 @@ class CheckThread(threading.Thread, LoggingMixin):
                 AstronomerAvailableVersion.hidden_from_ui.is_(False)
             )
 
-            ac_version = version.parse(get_ac_version())
+            runtime_version = version.parse(get_runtime_version())
             for rel in available_releases:
-                if ac_version >= version.parse(rel.version):
+                if runtime_version >= version.parse(rel.version):
                     rel.hidden_from_ui = True
 
     def check_for_update(self):
@@ -140,8 +125,7 @@ class CheckThread(threading.Thread, LoggingMixin):
                 return UpdateResult.NOT_DUE, how_long
 
             self.log.info(
-                "Checking for new version of %s, previous check was performed at %s",
-                _app_name(include_airflow=True),
+                "Checking for new version of Astronomer Runtime, previous check was performed at %s",
                 lock.last_checked,
             )
 
@@ -166,23 +150,14 @@ class CheckThread(threading.Thread, LoggingMixin):
             return result, self.check_interval.total_seconds()
 
     def _process_update_json(self, update_document):
-        if 'runtime' in _app_name().lower():
-            return self._process_update_json_v1_0(update_document)
-        version = update_document.get('version', None)
-        if version != '1.0':
-            r = repr(version) if version else '<MISSING>'
-            raise RuntimeError("Un-parsable format_version " + r)
-
         return self._process_update_json_v1_0(update_document)
 
     def _process_update_json_v1_0(self, update_document):
         from .models import AstronomerAvailableVersion
 
-        versions = update_document.get("available_releases", [])
-        if 'runtime' in _app_name().lower():
-            versions = self._convert_runtime_versions(update_document.get("runtimeVersions", {}))
+        versions = self._convert_runtime_versions(update_document.get("runtimeVersions", {}))
 
-        current_version = version.parse(self.ac_version)
+        current_version = version.parse(self.runtime_version)
 
         self.log.debug(
             "Raw versions in update document: %r",
@@ -203,7 +178,7 @@ class CheckThread(threading.Thread, LoggingMixin):
                 self.log.debug(
                     "Got to a release (%s) that is older than the running version (%s) -- stopping looking for more",
                     ver,
-                    self.ac_version,
+                    self.runtime_version,
                 )
                 break
 
@@ -258,26 +233,10 @@ class CheckThread(threading.Thread, LoggingMixin):
             versions.append(new_dict)
         return versions
 
-    def _make_fake_response(self):
-        v = version.parse(self.ac_version)
-
-        new_version = f'{v.major}.{v.minor}.{v.micro+1}-1'
-
-        return {
-            'version': '1.0',
-            'available_releases': [
-                {
-                    'version': new_version,
-                    'url': f'https://astronomer.io/cea/release-notes/{new_version}.html',
-                    'level': 'bug_fix',
-                },
-            ],
-        }
-
     def _make_fake_runtime_response(self):
-        v = version.parse(self.ac_version)
+        v = version.parse(self.runtime_version)
 
-        new_version = f'{v.major}.{v.minor}.{v.micro}'
+        new_version = f'{v.major}.{v.minor}.{v.patch}'
 
         return {
             'features': {},
@@ -302,7 +261,7 @@ class CheckThread(threading.Thread, LoggingMixin):
                 params={
                     'site': self.base_url,
                 },
-                headers={'User-Agent': f'airflow/{self.ac_version} {json_data}'},
+                headers={'User-Agent': f'airflow/{self.runtime_version} {json_data}'},
             )
             r.raise_for_status()
             return r.json()
@@ -332,8 +291,8 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
             AstronomerAvailableVersion.hidden_from_ui.is_(False)
         )
 
-        ac_version = version.parse(get_ac_version())
-        base_version = ac_version.base_version
+        runtime_version = version.parse(get_runtime_version())
+        base_version = runtime_version.major
 
         sorted_releases = sorted(available_releases, key=lambda v: version.parse(v.version), reverse=True)
         for rel in sorted_releases:
@@ -342,19 +301,17 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
             # if the user is on version 5.0.6 and 5.0.8, 6.0.0 are available,
             # notify the user about 5.0.8 and don't notify user about 6.0.0.
             rel_parsed_version = version.parse(rel.version)
-            rel_parsed_base_version = rel_parsed_version.base_version
-            if "runtime" in _app_name().lower():
-                rel_parsed_base_version = rel_parsed_version.major
-                base_version = ac_version.major
 
-            if rel_parsed_version > ac_version and rel_parsed_base_version == base_version:
+            rel_parsed_base_version = rel_parsed_version.major
+
+            if rel_parsed_version > runtime_version and rel_parsed_base_version == base_version:
                 return {
                     "level": rel.level,
                     "date_released": rel.date_released,
                     "description": rel.description,
                     "version": rel.version,
                     "url": rel.url,
-                    "app_name": _app_name(),
+                    "app_name": "Astronomer Runtime",
                 }
 
         if sorted_releases:
@@ -365,7 +322,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
                 'description': recent_release.description,
                 'version': recent_release.version,
                 'url': recent_release.url,
-                "app_name": _app_name(),
+                "app_name": "Astronomer Runtime",
             }
 
         return None
@@ -442,21 +399,8 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         super().register(app, *args, **kwargs)
 
 
-def get_ac_version():
-    runtime_version = os.environ.get("ASTRONOMER_RUNTIME_VERSION", None)
-    if runtime_version:
-        return runtime_version
-    try:
-        import importlib_metadata
-    except ImportError:
-        from importlib import metadata as importlib_metadata
-
-    try:
-        ac_version = importlib_metadata.version('astronomer-certified')
-    except importlib_metadata.PackageNotFoundError:
-        # Try to work out ac_version from airflow version
-        ac_version = AIRFLOW_VERSION.replace('+astro.', '-')
-    return ac_version
+def get_runtime_version():
+    return os.environ.get("ASTRONOMER_RUNTIME_VERSION", None)
 
 
 def get_user_string_data():
