@@ -43,6 +43,11 @@ T = TypeVar("T", bound=Callable)
 # "update_checks.py"
 
 
+def has_access(method: ResourceMethod) -> Callable[[T], T]:
+    return auth._has_access_no_details(
+        lambda: get_auth_manager().is_authorized(method=method, resource_type="UpdateAvailable"))
+
+
 class UpdateResult(enum.Enum):
     FAILURE = enum.auto()
     NOT_DUE = enum.auto()
@@ -349,7 +354,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         allow_browser_login = True
 
         @expose("<path:version>/dismiss", methods=["POST"])
-        @auth.has_access(
+        @has_access(
             [
                 ("can_dismiss", 'UpdateAvailable'),
             ]
@@ -445,7 +450,3 @@ def get_user_string_data():
 
     return json.dumps(data, separators=(",", ":"), sort_keys=True)
 
-
-def has_access(method: ResourceMethod) -> Callable[[T], T]:
-    return auth._has_access_no_details(
-        lambda: get_auth_manager().is_authorized(method=method, resource_type="UpdateAvailable"))
