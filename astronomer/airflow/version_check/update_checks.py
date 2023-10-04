@@ -13,6 +13,7 @@ import lazy_object_proxy
 import pendulum
 import requests
 import sqlalchemy.exc
+from typing import Callable, TYPE_CHECKING
 from requests.exceptions import SSLError, HTTPError
 from sqlalchemy import inspect
 from flask import Blueprint, current_app
@@ -25,12 +26,17 @@ from airflow.utils.db import create_session
 from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow.utils.timezone import utcnow
 from airflow.www import auth
+from airflow.www.extensions.init_auth_manager import get_auth_manager
 
 try:
     from airflow.www_rbac.decorators import action_logging
 except ImportError:
     from airflow.www.decorators import action_logging
 
+if TYPE_CHECKING:
+    from airflow.auth.managers.base_auth_manager import ResourceMethod
+
+T = TypeVar("T", bound=Callable)
 
 # Code is placed in this file as the default Airflow logging config shows the
 # file name (not the logger name) so this prefixes our log messages with
@@ -438,3 +444,8 @@ def get_user_string_data():
     data["ci"] = True if any(name in os.environ for name in ['BUILD_BUILDID', 'BUILD_ID', 'CI']) else None
 
     return json.dumps(data, separators=(",", ":"), sort_keys=True)
+
+
+def has_access(method: ResourceMethod) -> Callable[[T], T]:
+    return auth._has_access_no_details(
+        lambda: get_auth_manager().is_authorized(method=method, resource_type="UpdateAvailable"))
