@@ -43,7 +43,7 @@ T = TypeVar("T", bound=Callable)
 
 
 def has_access(method: str, resource_type: str) -> Callable[[T], T]:
-    def has_access_decorated(*, is_authorized: bool, func: Callable, args, kwargs):
+    def decorated(*, is_authorized: bool, func: Callable, args, kwargs):
         """
         Define the behavior whether the user is authorized to access the resource.
         :param is_authorized: whether the user is authorized to access the resource
@@ -70,15 +70,15 @@ def has_access(method: str, resource_type: str) -> Callable[[T], T]:
 
     def has_access_decorator(func: T):
         @wraps(func)
-        def decorated(*args, **kwargs):
-            return has_access_decorated(
+        def wrapper(*args, **kwargs):
+            return decorated(
                 is_authorized=get_auth_manager().is_authorized(method=method, resource_type=resource_type),
                 func=func,
                 args=args,
                 kwargs=kwargs,
             )
 
-        return cast(T, decorated)
+        return cast(T, wrapper)
 
     return has_access_decorator
 
