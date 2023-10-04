@@ -354,11 +354,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         allow_browser_login = True
 
         @expose("<path:version>/dismiss", methods=["POST"])
-        @has_access(
-            [
-                ("can_dismiss", 'UpdateAvailable'),
-            ]
-        )
+        @has_access(method="can_dismiss")
         @action_logging
         def dismiss(self, version):
             from .models import AstronomerAvailableVersion
