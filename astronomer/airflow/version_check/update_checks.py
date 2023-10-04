@@ -13,10 +13,10 @@ import lazy_object_proxy
 import pendulum
 import requests
 import sqlalchemy.exc
-from typing import Callable, TYPE_CHECKING
+from typing import Callable, TypeVar, cast
 from requests.exceptions import SSLError, HTTPError
 from sqlalchemy import inspect
-from flask import Blueprint, current_app
+from flask import Blueprint, current_app, flash, redirect, render_template, request, g
 from flask_appbuilder.api import BaseApi, expose
 from flask_sqlalchemy import get_state
 from semver import Version as version
@@ -25,16 +25,15 @@ from airflow.configuration import conf
 from airflow.utils.db import create_session
 from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow.utils.timezone import utcnow
-from airflow.www import auth
+from airflow.utils.net import get_hostname
 from airflow.www.extensions.init_auth_manager import get_auth_manager
+from functools import wraps
 
 try:
     from airflow.www_rbac.decorators import action_logging
 except ImportError:
     from airflow.www.decorators import action_logging
 
-if TYPE_CHECKING:
-    from airflow.auth.managers.base_auth_manager import ResourceMethod
 
 T = TypeVar("T", bound=Callable)
 
@@ -43,9 +42,45 @@ T = TypeVar("T", bound=Callable)
 # "update_checks.py"
 
 
-def has_access(method: ResourceMethod) -> Callable[[T], T]:
-    return auth._has_access_no_details(
-        lambda: get_auth_manager().is_authorized(method=method, resource_type="UpdateAvailable"))
+def has_access(method: str, resource_type: str) -> Callable[[T], T]:
+    def has_access_decorated(*, is_authorized: bool, func: Callable, args, kwargs):
+        """
+        Define the behavior whether the user is authorized to access the resource.
+        :param is_authorized: whether the user is authorized to access the resource
+        :param func: the function to call if the user is authorized
+        :param args: the arguments of ``func``
+        :param kwargs: the keyword arguments ``func``
+        :meta private:
+        """
+        if is_authorized:
+            return func(*args, **kwargs)
+        elif get_auth_manager().is_logged_in() and not g.user.perms:
+            return (
+                render_template(
+                    "airflow/no_roles_permissions.html",
+                    hostname=get_hostname() if conf.getboolean("webserver", "EXPOSE_HOSTNAME") else "redact",
+                    logout_url=get_auth_manager().get_url_logout(),
+                ),
+                403,
+            )
+        else:
+            access_denied = conf.get("webserver", "access_denied_message")
+            flash(access_denied, "danger")
+        return redirect(get_auth_manager().get_url_login(next=request.url))
+
+    def has_access_decorator(func: T):
+        @wraps(func)
+        def decorated(*args, **kwargs):
+            return has_access_decorated(
+                is_authorized=get_auth_manager().is_authorized(method=method, resource_type=resource_type),
+                func=func,
+                args=args,
+                kwargs=kwargs,
+            )
+
+        return cast(T, decorated)
+
+    return has_access_decorator
 
 
 class UpdateResult(enum.Enum):
@@ -354,7 +389,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         allow_browser_login = True
 
         @expose("<path:version>/dismiss", methods=["POST"])
-        @has_access(method="can_dismiss")
+        @has_access(method="can_dismiss", resource_type="UpdateAvailable")
         @action_logging
         def dismiss(self, version):
             from .models import AstronomerAvailableVersion
@@ -445,4 +480,3 @@ def get_user_string_data():
     data["ci"] = True if any(name in os.environ for name in ['BUILD_BUILDID', 'BUILD_ID', 'CI']) else None
 
     return json.dumps(data, separators=(",", ":"), sort_keys=True)
-
