@@ -73,23 +73,20 @@ jobs:
 
   publish:
     docker:
-      - image: gcr.io/google.com/cloudsdktool/cloud-sdk:alpine
+      - image: cimg/python:3.11.3-node
     steps:
       - checkout
       - run:
+          name: "Install gcloud"
+          command: |-
+            echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
+            && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg  add - \
+            && sudo apt-get update -y \
+            && sudo apt-get install google-cloud-cli -y
+      - run:
           name: verify tag
           command: |-
-            # Install necessary packages and verify that the tag is correct
-            # gcc package -> gcc (executable)
-            # g++ package -> cc1plus (executable)
-            # python3-dev package -> Python.h
-            # libffi-dev -> ffi.h
-            # musl-dev package -> limits.h
-            apk update && apk add python3-dev \
-                                  gcc \
-                                  g++ \
-                                  libffi-dev \
-                                  musl-dev
+
             python3 -m venv .venv
             . .venv/bin/activate
             pip install --upgrade pip setuptools wheel
