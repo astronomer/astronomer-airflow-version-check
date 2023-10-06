@@ -1,5 +1,33 @@
 # Changelog
 
+## Version 2.0.1
+- Properly set the version column type (#57)
+
+## Version 2.0.0
+- Use semantic versioning for checking of runtime images and remove deprecated AC supports (#54)
+
+## Version 1.0.15
+- Fix bug in ignoring new version available update banner (#50)
+- Update the base template options (#51)
+
+## Version 1.0.14
+- Update plugin to work with 2.6.0 (#48)
+
+## Version 1.0.13
+- Catch SSLError & HTTPError during requests.get (#46)
+
+## Version 1.0.12
+- Fix Attribute error in lower versions of airflow (#43)
+
+## Version 1.0.11
+- Manually pre-install wheel so cryptography gets installed from a wheel (#33)
+- Remove create table hook on upgradedb (#40)
+- Make version check plugin work in runtime (#41)
+
+## Version 1.0.10
+- Fix plugin to work with Airflow 2.3.3+ (#37)
+- Fix version compact (#38)
+
 ## Version 1.0.9
 
 - Show available updates in a better way (#34)
