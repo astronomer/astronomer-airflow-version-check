@@ -6,7 +6,7 @@ from typing import Optional
 
 import sqlalchemy.ext
 from airflow.models import Base
-from airflow.utils.db import create_session, provide_session
+from airflow.utils.db import create_session
 from airflow.utils.net import get_hostname
 from airflow.utils.timezone import utcnow
 from airflow.utils.sqlalchemy import UtcDateTime
@@ -80,22 +80,9 @@ class AstronomerVersionCheck(Base):
         return f"{get_hostname()}-{os.getpid()}#{threading.get_ident()}"
 
 
-@provide_session
-def _get_version_column_type(session):
-    """
-    To avoid MySQL/MariaDB errors when using TEXT with Primary Key
-    Details: https://stackoverflow.com/questions/1827063/mysql-error-key-specification-without-a-key-length
-    """
-    if session.bind.dialect.name == "mysql":
-        col_type = String(255)
-    else:
-        col_type = Text
-    return col_type
-
-
 class AstronomerAvailableVersion(Base):
     __tablename__ = "astro_available_version"
-    version = Column(_get_version_column_type(), nullable=False, primary_key=True)
+    version = Column(Text().with_variant(String(255), "mysql"), nullable=False, primary_key=True)
     level = Column(Text, nullable=False)
     date_released = Column(UtcDateTime(timezone=True), nullable=False)
     description = Column(Text)
