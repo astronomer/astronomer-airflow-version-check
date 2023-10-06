@@ -120,7 +120,7 @@ def test_plugin_table_created(app, session):
         thread = threading.Thread(target=standalone, args=('webserver',))
         thread.daemon = True
         thread.start()
-        while thread.isAlive():
+        while thread.is_alive():
             if inspector.has_table('task_instance'):
                 break
         for _ in range(10):
