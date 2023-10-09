@@ -1,5 +1,8 @@
 # Changelog
 
+## Version 2.0.2
+- Hook at the `_execute` instead of run_scheduler_loop (#60)
+
 ## Version 2.0.1
 - Properly set the version column type (#57)
 
