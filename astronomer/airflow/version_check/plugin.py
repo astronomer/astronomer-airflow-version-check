@@ -52,14 +52,14 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
                 )
             except AttributeError:
                 cls.add_before_call(
-                    airflow.jobs.scheduler_job.SchedulerJob, '_run_scheduler_loop', cls.start_update_thread
+                    airflow.jobs.scheduler_job.SchedulerJob, '_execute', cls.start_update_thread
                 )
         except ImportError:
             import airflow.jobs.scheduler_job_runner
 
             cls.add_before_call(
                 airflow.jobs.scheduler_job_runner.SchedulerJobRunner,
-                '_run_scheduler_loop',
+                '_execute',
                 cls.start_update_thread,
             )
 
