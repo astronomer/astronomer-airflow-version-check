@@ -25,8 +25,6 @@ from airflow.configuration import conf
 from airflow.utils.db import create_session
 from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow.utils.timezone import utcnow
-from airflow.utils.net import get_hostname
-from airflow.www.extensions.init_auth_manager import get_auth_manager
 from functools import wraps
 
 try:
@@ -42,7 +40,10 @@ T = TypeVar("T", bound=Callable)
 # "update_checks.py"
 
 
-def has_access_custom(method: str, resource_type: str) -> Callable[[T], T]:
+def has_access_(method: str, resource_type: str) -> Callable[[T], T]:
+    from airflow.utils.net import get_hostname
+    from airflow.www.extensions.init_auth_manager import get_auth_manager
+
     def decorated(*, is_authorized: bool, func: Callable, args, kwargs):
         """
         Define the behavior whether the user is authorized to access the resource.
@@ -83,10 +84,12 @@ def has_access_custom(method: str, resource_type: str) -> Callable[[T], T]:
     return has_access_decorator
 
 
+# This code is introduced to maintain backward compatibility, since with airflow > 2.8
+# we no longer have `has_access` in airflow.www.auth.
 try:
     from airflow.www.auth import has_access
 except ImportError:
-    has_access = has_access_custom
+    has_access = has_access_
 
 
 class UpdateResult(enum.Enum):
