@@ -1,5 +1,8 @@
 # Changelog
 
+## Version 2.0.3
+- Add has_access method to handle backward compatibility (#56)
+
 ## Version 2.0.2
 - Hook at the `_execute` instead of run_scheduler_loop (#60)
 
