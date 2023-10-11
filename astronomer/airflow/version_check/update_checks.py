@@ -1,3 +1,4 @@
+from __future__ import annotations
 import enum
 import json
 import os
@@ -13,9 +14,10 @@ import lazy_object_proxy
 import pendulum
 import requests
 import sqlalchemy.exc
+from typing import Callable, TypeVar, cast, Sequence
 from requests.exceptions import SSLError, HTTPError
 from sqlalchemy import inspect
-from flask import Blueprint, current_app
+from flask import Blueprint, current_app, flash, redirect, render_template, request, g
 from flask_appbuilder.api import BaseApi, expose
 from flask_sqlalchemy import get_state
 from semver import Version as version
@@ -24,7 +26,7 @@ from airflow.configuration import conf
 from airflow.utils.db import create_session
 from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow.utils.timezone import utcnow
-from airflow.www import auth
+from functools import wraps
 
 try:
     from airflow.www_rbac.decorators import action_logging
@@ -32,9 +34,66 @@ except ImportError:
     from airflow.www.decorators import action_logging
 
 
+T = TypeVar("T", bound=Callable)
+
 # Code is placed in this file as the default Airflow logging config shows the
 # file name (not the logger name) so this prefixes our log messages with
 # "update_checks.py"
+
+
+def has_access_(permissions: Sequence[tuple[str, str]]) -> Callable[[T], T]:
+    method: str = permissions[0][0]
+    resource_type: str = permissions[0][1]
+
+    from airflow.utils.net import get_hostname
+    from airflow.www.extensions.init_auth_manager import get_auth_manager
+
+    def decorated(*, is_authorized: bool, func: Callable, args, kwargs):
+        """
+        Define the behavior whether the user is authorized to access the resource.
+        :param is_authorized: whether the user is authorized to access the resource
+        :param func: the function to call if the user is authorized
+        :param args: the arguments of ``func``
+        :param kwargs: the keyword arguments ``func``
+        :meta private:
+        """
+        if is_authorized:
+            return func(*args, **kwargs)
+        elif get_auth_manager().is_logged_in() and not g.user.perms:
+            return (
+                render_template(
+                    "airflow/no_roles_permissions.html",
+                    hostname=get_hostname() if conf.getboolean("webserver", "EXPOSE_HOSTNAME") else "redact",
+                    logout_url=get_auth_manager().get_url_logout(),
+                ),
+                403,
+            )
+        else:
+            access_denied = conf.get("webserver", "access_denied_message")
+            flash(access_denied, "danger")
+        return redirect(get_auth_manager().get_url_login(next=request.url))
+
+    def has_access_decorator(func: T):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return decorated(
+                is_authorized=get_auth_manager().is_authorized(method=method, resource_type=resource_type),
+                func=func,
+                args=args,
+                kwargs=kwargs,
+            )
+
+        return cast(T, wrapper)
+
+    return has_access_decorator
+
+
+# This code is introduced to maintain backward compatibility, since with airflow > 2.8
+# method `has_access` will be deprecated in airflow.www.auth.
+try:
+    from airflow.www.auth import has_access
+except ImportError:
+    has_access = has_access_
 
 
 class UpdateResult(enum.Enum):
@@ -343,7 +402,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         allow_browser_login = True
 
         @expose("<path:version>/dismiss", methods=["POST"])
-        @auth.has_access(
+        @has_access(
             [
                 ("can_dismiss", 'UpdateAvailable'),
             ]
