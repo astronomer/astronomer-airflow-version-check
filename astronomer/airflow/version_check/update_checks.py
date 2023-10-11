@@ -13,7 +13,7 @@ import lazy_object_proxy
 import pendulum
 import requests
 import sqlalchemy.exc
-from typing import Callable, TypeVar, cast
+from typing import Callable, TypeVar, cast, Sequence
 from requests.exceptions import SSLError, HTTPError
 from sqlalchemy import inspect
 from flask import Blueprint, current_app, flash, redirect, render_template, request, g
@@ -40,7 +40,10 @@ T = TypeVar("T", bound=Callable)
 # "update_checks.py"
 
 
-def has_access_(method: str, resource_type: str) -> Callable[[T], T]:
+def has_access_(permissions: Sequence[tuple[str, str]]) -> Callable[[T], T]:
+    method: str = permissions[0][0]
+    resource_type: str = permissions[0][1]
+
     from airflow.utils.net import get_hostname
     from airflow.www.extensions.init_auth_manager import get_auth_manager
 
@@ -85,7 +88,7 @@ def has_access_(method: str, resource_type: str) -> Callable[[T], T]:
 
 
 # This code is introduced to maintain backward compatibility, since with airflow > 2.8
-# we no longer have `has_access` in airflow.www.auth.
+# method `has_access` will be deprecated in airflow.www.auth.
 try:
     from airflow.www.auth import has_access
 except ImportError:
@@ -398,7 +401,11 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         allow_browser_login = True
 
         @expose("<path:version>/dismiss", methods=["POST"])
-        @has_access(method="can_dismiss", resource_type="UpdateAvailable")
+        @has_access(
+            [
+                ("can_dismiss", 'UpdateAvailable'),
+            ]
+        )
         @action_logging
         def dismiss(self, version):
             from .models import AstronomerAvailableVersion
