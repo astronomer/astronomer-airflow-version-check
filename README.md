@@ -1,8 +1,8 @@
 # astronomer-airflow-version-check
 
 An Apache Airflow plugin that will periodically (default, once per day) check
-if there is a new version of Astronomer's Certified Airflow and display a
-message in the UI
+if there is a new version of Astronomer's Astro Runtime and display a
+message in the Airflow UI
 
 ## Settings
 
