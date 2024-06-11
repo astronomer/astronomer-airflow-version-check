@@ -4,7 +4,7 @@ import logging
 from airflow.configuration import conf
 from airflow.plugins_manager import AirflowPlugin
 from airflow.utils.db import create_session
-from sqlalchemy import inspect, Column
+from sqlalchemy import inspect, Column, Boolean
 from sqlalchemy.exc import SQLAlchemyError
 from airflow.utils.sqlalchemy import UtcDateTime
 from alembic.migration import MigrationContext
@@ -99,6 +99,7 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
             AstronomerAvailableVersion.__tablename__: [
                 Column('end_of_support', UtcDateTime(timezone=True), nullable=True),
                 Column('eos_dismissed_until', UtcDateTime(timezone=True), nullable=True),
+                Column('yanked', Boolean, nullable=False, default=False),
             ],
         }
 

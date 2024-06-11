@@ -259,6 +259,7 @@ class CheckThread(threading.Thread, LoggingMixin):
                     description=release.get('description'),
                     end_of_support=end_of_support,
                     hidden_from_ui=True,
+                    yanked=release.get('yanked', False),
                 )
             else:
                 yield AstronomerAvailableVersion(
@@ -268,6 +269,7 @@ class CheckThread(threading.Thread, LoggingMixin):
                     url=release.get('url'),
                     description=release.get('description'),
                     end_of_support=end_of_support,
+                    yanked=release.get('yanked', False),
                 )
 
     def _convert_runtime_versions(self, runtime_versions):
@@ -295,6 +297,7 @@ class CheckThread(threading.Thread, LoggingMixin):
                 "description": "",
                 "release_date": "2021-07-20",
                 "end_of_support": "2022-02-28",
+                "yanked": False
             }]
         """
         versions = []
@@ -308,6 +311,7 @@ class CheckThread(threading.Thread, LoggingMixin):
             new_dict['release_date'] = metadata['releaseDate']
             new_dict['channel'] = metadata['channel']
             new_dict['end_of_support'] = metadata.get('endOfSupport')
+            new_dict['yanked'] = metadata.get('yanked', False)
             versions.append(new_dict)
         return versions
 
@@ -325,6 +329,7 @@ class CheckThread(threading.Thread, LoggingMixin):
                         "channel": "deprecated",
                         "releaseDate": "2021-07-20",
                         "endOfSupport": "2022-02-28",
+                        "yanked": False,
                     },
                     "migrations": {"airflowDatabase": "true"},
                 },
@@ -425,6 +430,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
                     "version": rel.version,
                     "url": rel.url,
                     "app_name": "Astronomer Runtime",
+                    "yanked": rel.yanked,
                 }
 
         if sorted_releases:
@@ -436,6 +442,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
                 'version': recent_release.version,
                 'url': recent_release.url,
                 "app_name": "Astronomer Runtime",
+                "yanked": recent_release.yanked,
             }
 
         return None

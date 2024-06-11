@@ -99,5 +99,6 @@ class AstronomerAvailableVersion(Base):
     hidden_from_ui = Column(Boolean, default=False, nullable=False)
     end_of_support = Column(UtcDateTime(timezone=True), nullable=True)
     eos_dismissed_until = Column(UtcDateTime(timezone=True), nullable=True)
+    yanked = Column(Boolean, default=False, nullable=False)
 
     __table_args__ = (Index('idx_astro_available_version_hidden', hidden_from_ui),)
