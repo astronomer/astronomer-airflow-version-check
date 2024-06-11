@@ -243,12 +243,19 @@ class CheckThread(threading.Thread, LoggingMixin):
             else:
                 release_date = utcnow()
 
+            end_of_support = (
+                pendulum.parse(release['end_of_support'], timezone='UTC')
+                if 'end_of_support' in release
+                else None
+            )
+
             yield AstronomerAvailableVersion(
                 version=release['version'],
                 level=release['level'],
                 date_released=release_date,
                 url=release.get('url'),
                 description=release.get('description'),
+                end_of_support=end_of_support,
             )
 
     def _convert_runtime_versions(self, runtime_versions):
@@ -262,6 +269,7 @@ class CheckThread(threading.Thread, LoggingMixin):
                         "airflowVersion": "2.1.1",
                         "channel": "deprecated",
                         "releaseDate": "2021-07-20",
+                        "endOfSupport": "2022-02-28"
                     },
                     "migrations": {"airflowDatabase": "true"},
                 },
@@ -274,6 +282,7 @@ class CheckThread(threading.Thread, LoggingMixin):
                 "url": "",
                 "description": "",
                 "release_date": "2021-07-20",
+                "end_of_support": "2022-02-28",
             }]
         """
         versions = []
@@ -286,6 +295,7 @@ class CheckThread(threading.Thread, LoggingMixin):
             new_dict["description"] = ""
             new_dict['release_date'] = metadata['releaseDate']
             new_dict['channel'] = metadata['channel']
+            new_dict['end_of_support'] = metadata.get('endOfSupport')
             versions.append(new_dict)
         return versions
 
@@ -302,6 +312,7 @@ class CheckThread(threading.Thread, LoggingMixin):
                         "airflowVersion": "2.1.1",
                         "channel": "deprecated",
                         "releaseDate": "2021-07-20",
+                        "endOfSupport": "2022-02-28",
                     },
                     "migrations": {"airflowDatabase": "true"},
                 },
@@ -361,6 +372,10 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
             rel_parsed_base_version = rel_parsed_version.major
 
             if rel_parsed_version > runtime_version and rel_parsed_base_version == base_version:
+                days_to_eol = None
+                if rel.end_of_support:
+                    now = utcnow()
+                    days_to_eol = (rel.end_of_support - now).days
                 return {
                     "level": rel.level,
                     "date_released": rel.date_released,
@@ -368,10 +383,45 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
                     "version": rel.version,
                     "url": rel.url,
                     "app_name": "Astronomer Runtime",
+                    "days_to_eol": days_to_eol,
                 }
+
+            current_version = (
+                session.query(AstronomerAvailableVersion)
+                .filter(AstronomerAvailableVersion.version == str(runtime_version))
+                .one_or_none()
+            )
+
+            if current_version and current_version.end_of_support:
+                now = utcnow()
+                days_to_eol = (current_version.end_of_support - now).days
+                if days_to_eol <= 0:
+                    return {
+                        "level": "critical",
+                        "date_released": current_version.date_released,
+                        "description": "Current runtime version has reached its end of life!",
+                        "version": current_version.version,
+                        "url": current_version.url,
+                        "app_name": "Astronomer Runtime",
+                        "days_to_eol": days_to_eol,
+                    }
+                elif days_to_eol <= 30:
+                    return {
+                        "level": "warning",
+                        "date_released": current_version.date_released,
+                        "description": f"Current runtime version will reach its end of life in {days_to_eol} days.",
+                        "version": current_version.version,
+                        "url": current_version.url,
+                        "app_name": "Astronomer Runtime",
+                        "days_to_eol": days_to_eol,
+                    }
 
         if sorted_releases:
             recent_release = sorted_releases[0]
+            days_to_eol = None
+            if recent_release.end_of_support:
+                now = utcnow()
+                days_to_eol = (recent_release.end_of_support - now).days
             return {
                 'level': recent_release.level,
                 'date_released': recent_release.date_released,
@@ -379,6 +429,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
                 'version': recent_release.version,
                 'url': recent_release.url,
                 "app_name": "Astronomer Runtime",
+                "days_to_eol": days_to_eol,
             }
 
         return None
