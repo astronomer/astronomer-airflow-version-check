@@ -4,7 +4,8 @@ import logging
 from airflow.configuration import conf
 from airflow.plugins_manager import AirflowPlugin
 from airflow.utils.db import create_session
-from sqlalchemy import inspect
+from sqlalchemy import inspect, Column, MetaData, Table
+from airflow.utils.sqlalchemy import UtcDateTime
 
 from .update_checks import UpdateAvailableBlueprint
 
@@ -21,7 +22,8 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
     flask_blueprints = [UpdateAvailableBlueprint()] if update_check_interval != 0 else []
 
     @staticmethod
-    def add_before_call(mod_or_cls, target, pre_fn):
+    def add_before_call(mod_or_cls, target, pre_fn) -> None:
+        """Add a function to be called before another function in a module or class."""
         fn = getattr(mod_or_cls, target)
 
         @functools.wraps(fn)
@@ -32,9 +34,11 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
         setattr(mod_or_cls, target, run_before)
 
     @classmethod
-    def on_load(cls, *args, **kwargs):
-        # Hook in to various places in Airflow in a slightly horrible way -- by
-        # using functools.wraps and replacing the function.
+    def on_load(cls, *args, **kwargs) -> None:
+        """
+        Hook in to various places in Airflow in a slightly horrible
+        way -- by using functools.wraps and replacing the function.
+        """
 
         if update_check_interval == 0:
             log.debug("Skipping running update_check_plugin as [astronomer] update_check_interval = 0")
@@ -42,6 +46,7 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
 
         if not cls.all_table_created():
             cls.create_db_tables()
+        cls.migrate_db_tables()
 
         try:
             import airflow.jobs.scheduler_job
@@ -64,7 +69,8 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
             )
 
     @classmethod
-    def start_update_thread(cls):
+    def start_update_thread(cls) -> None:
+        """Start the update check thread."""
         from .models import AstronomerVersionCheck
         from .update_checks import CheckThread
 
@@ -79,7 +85,45 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
         CheckThread().start()
 
     @classmethod
-    def create_db_tables(cls):
+    def migrate_db_tables(cls):
+        """Apply migrations to the DB tables."""
+        with create_session() as session:
+            cls.apply_migrations(session)
+
+    @classmethod
+    def apply_migrations(cls, session):
+        """Apply migrations to the DB tables."""
+        from .models import AstronomerAvailableVersion
+
+        engine = session.get_bind(mapper=None, clause=None)
+        inspector = inspect(engine)
+        if not getattr(inspector, 'has_table', None):
+            inspector = engine
+
+        migrations = {
+            AstronomerAvailableVersion.__tablename__: {
+                'end_of_support': Column('end_of_support', UtcDateTime(timezone=True), nullable=True)
+            }
+        }
+
+        for table_name, columns in migrations.items():
+            existing_columns = [col['name'] for col in inspector.get_columns(table_name)]
+            for column_name, column_obj in columns.items():
+                if column_name not in existing_columns:
+                    cls.add_column(engine, table_name, column_obj)
+
+    @staticmethod
+    def add_column(engine, table_name, column_obj) -> None:
+        """Add a column to a table."""
+        log.info(f"Adding column {column_obj.name} to {table_name} table")
+        metadata = MetaData()
+        table = Table(table_name, metadata, autoload_with=engine)
+        column_obj.create(table)
+        log.info(f"Added column {column_obj.name}")
+
+    @classmethod
+    def create_db_tables(cls) -> None:
+        """Create the DB tables."""
         from .models import AstronomerAvailableVersion, AstronomerVersionCheck
 
         with create_session() as session:
@@ -100,7 +144,7 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
                 exit(1)
 
     @classmethod
-    def all_table_created(cls):
+    def all_table_created(cls) -> bool:
         """Check if there are missing tables"""
         from .models import AstronomerAvailableVersion, AstronomerVersionCheck
 
