@@ -1,6 +1,7 @@
 import pytest
 from airflow import plugins_manager
 from flask import url_for
+from sqlalchemy import inspect
 
 
 def test_plugin_registered():
@@ -22,3 +23,15 @@ def test_anon(client):
     response = client.get(url_for('Airflow.index'))
     assert response.status_code == 302
     assert b"update-notice.css" not in response.data, "Don't show notice when logged out"
+
+
+def test_migrations_applied(session):
+    """Verify that the migrations are applied correctly"""
+    from astronomer.airflow.version_check.plugin import AstronomerVersionCheckPlugin
+    from astronomer.airflow.version_check.models import AstronomerAvailableVersion
+
+    plugins_manager.ensure_plugins_loaded()
+    AstronomerVersionCheckPlugin.migrate_db_tables()
+    inspector = inspect(session.get_bind())
+    columns = {col['name'] for col in inspector.get_columns(AstronomerAvailableVersion.__tablename__)}
+    assert 'end_of_support' in columns, "Ensure the 'end_of_support' column is added"
