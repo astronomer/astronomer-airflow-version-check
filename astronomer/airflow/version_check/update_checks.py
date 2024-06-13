@@ -244,8 +244,8 @@ class CheckThread(threading.Thread, LoggingMixin):
                 release_date = utcnow()
 
             end_of_support = (
-                pendulum.parse(release['end_of_support'], timezone='UTC')
-                if 'end_of_support' in release
+                pendulum.parse(release.get('end_of_support'), timezone='UTC')
+                if release.get('end_of_support') is not None
                 else None
             )
 

@@ -4,7 +4,7 @@
     {% if "can_dismiss" | is_item_visible("UpdateAvailable") %}
       <button data-href="{{ url_for('UpdateAvailable.dismiss', version=cea_update_available.version) }}" title="Ignore this update, and hide this message from all users">&times; Ignore this update</button>
     {% endif %}
-    <p><strong>A new version of {{cea_update_available.app_name}} is available.</strong></p>
+    <p><strong>A new version of {{ cea_update_available.app_name }} is available.</strong></p>
     <p>
     {% if cea_update_available.url %}
       <a href="{{ cea_update_available.url }}">
@@ -17,10 +17,17 @@
       <time datetime="{{ cea_update_available.date_released.isoformat() }}">{{ cea_update_available.date_released.strftime("%Y-%m-%d") }}</time>
       {%- if cea_update_available.level == "critical" %}
         and this is a critical fix.
-      {%- elif cea_update_available.level == "warning" and cea_update_available.days_to_eol is not none and cea_update_available.days_to_eol <= 30 %}
-        and will reach its end of life in {{ cea_update_available.days_to_eol }} days.
-      {%- endif -%}
+      {%- endif %}
     </p>
+    {% if cea_update_available.days_to_eol is not none %}
+      <p>
+        {%- if cea_update_available.days_to_eol > 0 and cea_update_available.days_to_eol <= 30%}
+          This version will reach its end of life in {{ cea_update_available.days_to_eol }} days.
+        {%- elif cea_update_available.days_to_eol <= 0 %}
+          This version has reached its end of life.
+        {%- endif %}
+      </p>
+    {% endif %}
     {% if cea_update_available.description %}
       <p>{{ cea_update_available.description }}</p>
     {% endif %}
