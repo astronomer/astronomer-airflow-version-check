@@ -349,9 +349,24 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
             static_folder='static',
             template_folder=os.path.join(os.path.dirname(__file__), "templates"),
         )
+        from .plugin import dismissal_period_days, eol_warning_threshold_days
+
+        self.eol_warning_threshold_days = eol_warning_threshold_days
+        self.dismissal_period_days = dismissal_period_days
+
+    def get_eol_level(self, days_to_eol):
+        """Get the level of the EOL warning based on the number of days to EOL."""
+        if days_to_eol is None:
+            return ''
+        if days_to_eol <= 0:
+            return 'critical'
+        elif days_to_eol <= self.eol_warning_threshold_days:
+            return 'warning'
+        return ''
 
     def available_update(self):
-        from .models import AstronomerAvailableVersion
+        from .models import AstronomerAvailableVersion, DismissedEOLWarning
+        from .plugin import eol_warning_opt_out
 
         session = get_state(app=current_app).db.session
         available_releases = session.query(AstronomerAvailableVersion).filter(
@@ -376,45 +391,60 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
                 if rel.end_of_support:
                     now = utcnow()
                     days_to_eol = (rel.end_of_support - now).days
+                dismissed_until = self.get_dismissed_until(rel.version)
                 return {
-                    "level": rel.level,
+                    "level": self.get_eol_level(days_to_eol),
                     "date_released": rel.date_released,
                     "description": rel.description,
                     "version": rel.version,
                     "url": rel.url,
                     "app_name": "Astronomer Runtime",
                     "days_to_eol": days_to_eol,
+                    "dismissed_until": dismissed_until,
                 }
 
-            current_version = (
-                session.query(AstronomerAvailableVersion)
-                .filter(AstronomerAvailableVersion.version == str(runtime_version))
-                .one_or_none()
-            )
+            if not eol_warning_opt_out:
+                current_version = (
+                    session.query(AstronomerAvailableVersion)
+                    .filter(AstronomerAvailableVersion.version == str(runtime_version))
+                    .one_or_none()
+                )
 
-            if current_version and current_version.end_of_support:
-                now = utcnow()
-                days_to_eol = (current_version.end_of_support - now).days
-                if days_to_eol <= 0:
-                    return {
-                        "level": "critical",
-                        "date_released": current_version.date_released,
-                        "description": "Current runtime version has reached its end of life!",
-                        "version": current_version.version,
-                        "url": current_version.url,
-                        "app_name": "Astronomer Runtime",
-                        "days_to_eol": days_to_eol,
-                    }
-                elif days_to_eol <= 30:
-                    return {
-                        "level": "warning",
-                        "date_released": current_version.date_released,
-                        "description": f"Current runtime version will reach its end of life in {days_to_eol} days.",
-                        "version": current_version.version,
-                        "url": current_version.url,
-                        "app_name": "Astronomer Runtime",
-                        "days_to_eol": days_to_eol,
-                    }
+                if current_version and current_version.end_of_support:
+                    dismissed_eol_warning = (
+                        session.query(DismissedEOLWarning)
+                        .filter(
+                            DismissedEOLWarning.version == str(runtime_version),
+                            DismissedEOLWarning.dismissed_until > utcnow(),
+                        )
+                        .one_or_none()
+                    )
+
+                    if not dismissed_eol_warning:
+                        now = utcnow()
+                        days_to_eol = (current_version.end_of_support - now).days
+                        if days_to_eol <= 0:
+                            return {
+                                "level": self.get_eol_level(days_to_eol),
+                                "date_released": current_version.date_released,
+                                "description": "Current runtime version has reached its end of life!",
+                                "version": current_version.version,
+                                "url": current_version.url,
+                                "app_name": "Astronomer Runtime",
+                                "days_to_eol": days_to_eol,
+                                "dismissed_until": None,
+                            }
+                        elif days_to_eol <= self.eol_warning_threshold_days:
+                            return {
+                                "level": self.get_eol_level(days_to_eol),
+                                "date_released": current_version.date_released,
+                                "description": f"Current runtime version will reach its end of life in {days_to_eol} days.",
+                                "version": current_version.version,
+                                "url": current_version.url,
+                                "app_name": "Astronomer Runtime",
+                                "days_to_eol": days_to_eol,
+                                "dismissed_until": None,
+                            }
 
         if sorted_releases:
             recent_release = sorted_releases[0]
@@ -423,15 +453,29 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
                 now = utcnow()
                 days_to_eol = (recent_release.end_of_support - now).days
             return {
-                'level': recent_release.level,
+                'level': self.get_eol_level(days_to_eol),
                 'date_released': recent_release.date_released,
                 'description': recent_release.description,
                 'version': recent_release.version,
                 'url': recent_release.url,
                 "app_name": "Astronomer Runtime",
                 "days_to_eol": days_to_eol,
+                "dismissed_until": None,
             }
 
+        return None
+
+    def get_dismissed_until(self, version):
+        from .models import DismissedEOLWarning
+
+        with create_session() as session:
+            dismissed_warning = (
+                session.query(DismissedEOLWarning)
+                .filter(DismissedEOLWarning.version == version)
+                .one_or_none()
+            )
+            if dismissed_warning:
+                return dismissed_warning.dismissed_until
         return None
 
     def new_template_vars(self):
@@ -439,6 +483,9 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
             # Fetch it once per template render, not each time it's accessed
             'cea_update_available': lazy_object_proxy.Proxy(self.available_update),
             'airflow_base_template': self.airflow_base_template,
+            'eol_warning_threshold_days': self.eol_warning_threshold_days,
+            'eol_dismiss_days': self.dismissal_period_days,
+            'utcnow': utcnow,
         }
 
     class UpdateAvailable(BaseApi):
@@ -449,8 +496,36 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         # before is_item_public filter can be used.
         method_permission_name = {
             "dismiss": "dismiss",
+            "dismiss_eol": "dismiss_eol",
         }
         allow_browser_login = True
+
+        @expose("<path:version>/dismiss_eol", methods=["POST"])
+        @has_access([("can_dismiss", 'UpdateAvailable')])
+        @action_logging
+        def dismiss_eol(self, version):
+            from .models import DismissedEOLWarning
+            from .plugin import dismissal_period_days
+
+            dismiss_until = utcnow() + timedelta(days=dismissal_period_days)
+
+            with create_session() as session:
+                dismissed_eol_warning = (
+                    session.query(DismissedEOLWarning)
+                    .filter(
+                        DismissedEOLWarning.version == version,
+                    )
+                    .one_or_none()
+                )
+
+                if dismissed_eol_warning:
+                    dismissed_eol_warning.dismissed_until = dismiss_until
+                else:
+                    session.add(DismissedEOLWarning(version=version, dismissed_until=dismiss_until))
+
+                session.commit()
+
+            return self.response(200)
 
         @expose("<path:version>/dismiss", methods=["POST"])
         @has_access(
