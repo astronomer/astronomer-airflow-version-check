@@ -10,7 +10,7 @@ from airflow.utils.db import create_session
 from airflow.utils.net import get_hostname
 from airflow.utils.timezone import utcnow
 from airflow.utils.sqlalchemy import UtcDateTime
-from sqlalchemy import Boolean, Column, Index, String, Text, or_
+from sqlalchemy import Boolean, Column, Index, String, Text, or_, Integer
 
 log = logging.getLogger(__name__)
 
@@ -91,3 +91,10 @@ class AstronomerAvailableVersion(Base):
     end_of_support = Column(UtcDateTime(timezone=True), nullable=True)
 
     __table_args__ = (Index('idx_astro_available_version_hidden', hidden_from_ui),)
+
+
+class DismissedEOLWarning(Base):
+    __tablename__ = "dismissed_eol_warning"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    version = Column(Text().with_variant(String(255), "mysql"), nullable=False)
+    dismissed_until = Column(UtcDateTime(timezone=True), nullable=False)

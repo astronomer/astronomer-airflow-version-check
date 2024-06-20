@@ -4,7 +4,7 @@ import logging
 from airflow.configuration import conf
 from airflow.plugins_manager import AirflowPlugin
 from airflow.utils.db import create_session
-from sqlalchemy import inspect, Column, MetaData, Table
+from sqlalchemy import inspect, Column, MetaData, Table, Integer, Text, String
 from airflow.utils.sqlalchemy import UtcDateTime
 
 from .update_checks import UpdateAvailableBlueprint
@@ -14,6 +14,9 @@ __version__ = "2.0.3"
 log = logging.getLogger(__name__)
 
 update_check_interval = conf.getint("astronomer", "update_check_interval", fallback=24 * 60 * 60)
+eol_warning_opt_out = conf.get("astronomer", "eol_warning_opt_out", fallback="False")
+dismissal_period_days = conf.getint("astronomer", "eol_dismissal_period_days", fallback=7)
+eol_warning_threshold_days = conf.getint("astronomer", "eol_warning_threshold_days", fallback=30)
 
 
 class AstronomerVersionCheckPlugin(AirflowPlugin):
@@ -88,12 +91,12 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
     def migrate_db_tables(cls):
         """Apply migrations to the DB tables."""
         with create_session() as session:
-            cls.apply_migrations(session)
+            cls.create_columns_for_migration(session)
 
     @classmethod
-    def apply_migrations(cls, session):
-        """Apply migrations to the DB tables."""
-        from .models import AstronomerAvailableVersion
+    def create_columns_for_migration(cls, session):
+        """Create columns for the migration."""
+        from .models import AstronomerAvailableVersion, DismissedEOLWarning
 
         engine = session.get_bind(mapper=None, clause=None)
         inspector = inspect(engine)
@@ -103,7 +106,12 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
         migrations = {
             AstronomerAvailableVersion.__tablename__: {
                 'end_of_support': Column('end_of_support', UtcDateTime(timezone=True), nullable=True)
-            }
+            },
+            DismissedEOLWarning.__tablename__: {
+                'id': Column('id', Integer, primary_key=True, autoincrement=True),
+                'version': Column('version', Text().with_variant(String(255), "mysql"), nullable=False),
+                'dismissed_until': Column('dismissed_until', UtcDateTime(timezone=True), nullable=False),
+            },
         }
 
         for table_name, columns in migrations.items():
@@ -124,7 +132,7 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
     @classmethod
     def create_db_tables(cls) -> None:
         """Create the DB tables."""
-        from .models import AstronomerAvailableVersion, AstronomerVersionCheck
+        from .models import AstronomerAvailableVersion, AstronomerVersionCheck, DismissedEOLWarning
 
         with create_session() as session:
             try:
@@ -135,7 +143,7 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
                     bind=engine,
                     tables=[
                         metadata.tables[c.__tablename__]
-                        for c in [AstronomerVersionCheck, AstronomerAvailableVersion]
+                        for c in [AstronomerVersionCheck, AstronomerAvailableVersion, DismissedEOLWarning]
                     ],
                 )
                 log.info("Created")
@@ -146,9 +154,9 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
     @classmethod
     def all_table_created(cls) -> bool:
         """Check if there are missing tables"""
-        from .models import AstronomerAvailableVersion, AstronomerVersionCheck
+        from .models import AstronomerAvailableVersion, AstronomerVersionCheck, DismissedEOLWarning
 
-        tables = [AstronomerAvailableVersion, AstronomerVersionCheck]
+        tables = [AstronomerAvailableVersion, AstronomerVersionCheck, DismissedEOLWarning]
         with create_session() as session:
             engine = session.get_bind(mapper=None, clause=None)
             inspector = inspect(engine)
