@@ -164,3 +164,37 @@ def test_days_to_eol_warning_and_critical(
 
         assert abs(result['days_to_eol'] - expected_days_to_eol) <= 1
         assert result['level'] == expected_level
+
+
+@pytest.mark.parametrize(
+    "image_version, yanked",
+    [("4.0.0", True), ("4.0.0", False)],
+)
+def test_yanked_version_warning(app, session, image_version, yanked):
+    from airflow.utils.db import resetdb
+
+    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
+        resetdb()
+        vc = AstronomerVersionCheck(singleton=True)
+        session.add(vc)
+        session.commit()
+
+        av = AstronomerAvailableVersion(
+            version=image_version,
+            level="",
+            date_released=utcnow() - timedelta(days=100),
+            description="",
+            url="",
+            hidden_from_ui=False,
+            yanked=yanked,
+        )
+        session.add(av)
+        session.commit()
+
+        blueprint = UpdateAvailableBlueprint()
+        result = blueprint.available_update()
+
+        if yanked:
+            assert result['yanked'] is True
+        else:
+            assert result['yanked'] is False

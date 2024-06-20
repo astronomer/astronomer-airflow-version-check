@@ -27,6 +27,12 @@
     </div>
   {% endif %}
 
+  {% if cea_update_available and cea_update_available.yanked %}
+    <div class="alert alert-warning ac-yanked-notice">
+      <p><strong>Warning: The current version {{ cea_update_available.version }} of {{ cea_update_available.app_name }} has been yanked.</strong></p>
+    </div>
+  {% endif %}
+
   {% if cea_eol_notice %}
     {% set eol_level = "warning" if cea_eol_notice.days_to_eol > 0 else "error" %}
       <div class="alert alert-{{ eol_level }} ac-eol-notice">
