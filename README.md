@@ -40,26 +40,4 @@ variables prefixed with `AIRFLOW__ASTRONOMER__`.
 - `eol_warning_threshold_days`
 
   Sets the threshold for showing EOL warnings. The default is 30 days.
-
-### Configuration
-
-The following environment variables can be set to configure the behavior of the Astronomer update checks and EOL warnings:
-
-- `AIRFLOW__ASTRONOMER__UPDATE_CHECK_INTERVAL`: Sets the interval for checking updates. Default is `86400` seconds (24 hours).
-- `AIRFLOW__ASTRONOMER__UPDATE_CHECK_TIMEOUT`: Sets the HTTP timeout for requesting the update document. Default is `60` seconds.
-- `AIRFLOW__ASTRONOMER__UPDATE_URL`: Sets the URL to request to find out about more updates. Default is `https://updates.astronomer.io`.
-- `AIRFLOW__ASTRONOMER__EOL_WARNING_OPT_OUT`: Sets whether to opt out of EOL warnings. The default is `"False"`.
-- `AIRFLOW__ASTRONOMER__EOL_DISMISSAL_PERIOD_DAYS`: Sets the period for dismissing EOL warnings. The default is `7` days.
-- `AIRFLOW__ASTRONOMER__EOL_WARNING_THRESHOLD_DAYS`: Sets the threshold for showing EOL warnings. The default is `30` days.
-
-### Example Usage
-
-To set these environment variables, you can add the following lines to your environment configuration:
-
-```sh
-export AIRFLOW__ASTRONOMER__UPDATE_CHECK_INTERVAL=86400
-export AIRFLOW__ASTRONOMER__UPDATE_CHECK_TIMEOUT=60
-export AIRFLOW__ASTRONOMER__UPDATE_URL="https://updates.astronomer.io"
-export AIRFLOW__ASTRONOMER__EOL_WARNING_OPT_OUT="False"
-export AIRFLOW__ASTRONOMER__EOL_DISMISSAL_PERIOD_DAYS=7
-export AIRFLOW__ASTRONOMER__EOL_WARNING_THRESHOLD_DAYS=30
+-
