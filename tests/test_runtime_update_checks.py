@@ -36,7 +36,7 @@ def test_update_check_for_image_with_newer_patch(image_version, new_patch_versio
         blueprint = UpdateAvailableBlueprint()
         result = blueprint.available_update()
         # UI displays the latest patch release
-        assert result['version'] == latest_patch.version
+        assert result['update_notice']['version'] == latest_patch.version
 
 
 def test_update_check_for_image_already_on_the_highest_patch(app, session):
@@ -61,14 +61,14 @@ def test_update_check_for_image_already_on_the_highest_patch(app, session):
         blueprint = UpdateAvailableBlueprint()
         result = blueprint.available_update()
         # UI displays the latest release
-        assert result['version'] == highest_version[0].version
+        assert result['update_notice']['version'] == highest_version[0].version
 
 
 @mock.patch('astronomer.airflow.version_check.update_checks.get_runtime_version')
 def test_update_check_dont_show_update_if_no_new_version_available(mock_runtime_version, app, session):
     from airflow.utils.db import resetdb
 
-    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": '5.0.0'}):
+    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": '1.0.0'}):
         resetdb()
         vc = AstronomerVersionCheck(singleton=True)
         session.add(vc)
@@ -86,7 +86,7 @@ def test_update_check_dont_show_update_if_no_new_version_available(mock_runtime_
         blueprint = UpdateAvailableBlueprint()
         result = blueprint.available_update()
         # Nothing would be displayed if there is no new version available
-        assert result is None
+        assert result['update_notice'] is None
 
 
 def test_alpha_beta_versions_are_not_recorded(app, session):
@@ -162,5 +162,5 @@ def test_days_to_eol_warning_and_critical(
         blueprint = UpdateAvailableBlueprint()
         result = blueprint.available_update()
 
-        assert abs(result['days_to_eol'] - expected_days_to_eol) <= 1
-        assert result['level'] == expected_level
+        assert abs(result['eol_notice']['days_to_eol'] - expected_days_to_eol) <= 1
+        assert result['eol_notice']['level'] == expected_level

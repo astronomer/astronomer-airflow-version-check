@@ -1,51 +1,55 @@
 {% if current_user.is_authenticated %}
-  {% if cea_update_available %}
-    {% set level = "error" if cea_update_available.level == "critical" else "warning" %}
-    <div class="alert alert-{{ level }} ac-update-notice">
+  {% if cea_update_available.update_notice %}
+    {% set update_level = "warning" %}
+    {% if cea_update_available.update_notice.level == "critical" %}
+      {% set update_level = "error" %}
+    {% endif %}
+    <div class="alert alert-{{ update_level }} ac-update-notice">
       {% if "can_dismiss" | is_item_visible("UpdateAvailable") %}
-        <button data-href="{{ url_for('UpdateAvailable.dismiss', version=cea_update_available.version) }}" title="Ignore this update, and hide this message from all users">&times; Ignore this update</button>
+        <button data-href="{{ url_for('UpdateAvailable.dismiss', version=cea_update_available.update_notice.version) }}" title="Ignore this update, and hide this message from all users">&times; Ignore this update</button>
       {% endif %}
-      <p><strong>A new version of {{ cea_update_available.app_name }} is available.</strong></p>
+      <p><strong>A new version of {{ cea_update_available.update_notice.app_name }} is available.</strong></p>
       <p>
-        {% if cea_update_available.url %}
-          <a href="{{ cea_update_available.url }}">
+        {% if cea_update_available.update_notice.url %}
+          <a href="{{ cea_update_available.update_notice.url }}">
         {% endif %}
-          Version {{ cea_update_available.version }}
-        {% if cea_update_available.url %}
+          Version {{ cea_update_available.update_notice.version }}
+        {% if cea_update_available.update_notice.url %}
           </a>
         {% endif %}
         was released on
-        <time datetime="{{ cea_update_available.date_released.isoformat() }}">{{ cea_update_available.date_released.strftime("%Y-%m-%d") }}</time>
-        {%- if cea_update_available.level == "critical" %}
+        <time datetime="{{ cea_update_available.update_notice.date_released.isoformat() }}">{{ cea_update_available.update_notice.date_released.strftime("%Y-%m-%d") }}</time>
+        {%- if cea_update_available.update_notice.level == "critical" %}
           and this is a critical fix
         {%- endif -%}
         .
       </p>
-      {% if cea_update_available.description %}
-        <p>{{ cea_update_available.description }}</p>
+      {% if cea_update_available.update_notice.description %}
+        <p>{{ cea_update_available.update_notice.description }}</p>
       {% endif %}
     </div>
   {% endif %}
 
-  {% if cea_update_available and cea_update_available.days_to_eol is not none %}
-    {% if cea_update_available.days_to_eol > 0 and cea_update_available.days_to_eol <= eol_warning_threshold_days %}
-      {% if not cea_update_available.dismissed_until or utcnow > cea_update_available.dismissed_until %}
-        <div class="alert alert-warning ac-eol-notice">
+  {% if cea_update_available.eol_notice %}
+    {% set eol_level = "warning" if cea_update_available.eol_notice.days_to_eol > 0 else "error" %}
+    {% if cea_update_available.eol_notice.days_to_eol > 0 and cea_update_available.eol_notice.days_to_eol <= eol_warning_threshold_days %}
+      {% if not cea_update_available.eol_notice.dismissed_until or current_time > cea_update_available.eol_notice.dismissed_until %}
+        <div class="alert alert-{{ eol_level }} ac-eol-notice">
           <p>
-            <strong>{{ cea_update_available.app_name }} will reach its end of life in {{ cea_update_available.days_to_eol }} days.</strong>
+            <strong>{{ cea_update_available.eol_notice.app_name }} version {{ cea_update_available.eol_notice.version }} will reach its end of life in {{ cea_update_available.eol_notice.days_to_eol }} days.</strong>
             {% if "can_dismiss" | is_item_visible("UpdateAvailable") %}
-              <button data-href="{{ url_for('UpdateAvailable.dismiss_eol', version=cea_update_available.version) }}" title="Dismiss this warning for {{ eol_dismiss_days }} days">&times; Dismiss</button>
+              <button data-href="{{ url_for('UpdateAvailable.dismiss_eol', version=cea_update_available.eol_notice.version) }}" title="Dismiss this warning for {{ eol_dismiss_days }} days">&times; Dismiss</button>
             {% endif %}
           </p>
         </div>
       {% endif %}
-    {% elif cea_update_available.days_to_eol <= 0 %}
-      {% if not cea_update_available.dismissed_until or utcnow() > cea_update_available.dismissed_until %}
-        <div class="alert alert-error ac-eol-notice">
+    {% elif cea_update_available.eol_notice.days_to_eol <= 0 %}
+      {% if not cea_update_available.eol_notice.dismissed_until or current_time > cea_update_available.eol_notice.dismissed_until %}
+        <div class="alert alert-{{ eol_level }} ac-eol-notice">
           <p>
-            <strong>{{ cea_update_available.app_name }} has reached its end of life!</strong>
+            <strong>{{ cea_update_available.eol_notice.app_name }} version {{ cea_update_available.eol_notice.version }} has reached its end of life!</strong>
             {% if "can_dismiss" | is_item_visible("UpdateAvailable") %}
-              <button data-href="{{ url_for('UpdateAvailable.dismiss_eol', version=cea_update_available.version) }}" title="Dismiss this warning for {{ eol_dismiss_days }} days">&times; Dismiss</button>
+              <button data-href="{{ url_for('UpdateAvailable.dismiss_eol', version=cea_update_available.eol_notice.version) }}" title="Dismiss this warning for {{ eol_dismiss_days }} days">&times; Dismiss</button>
             {% endif %}
           </p>
         </div>

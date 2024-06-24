@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Any
 import enum
 import json
 import os
@@ -232,7 +233,8 @@ class CheckThread(threading.Thread, LoggingMixin):
                 continue
             if ver <= current_version:
                 self.log.debug(
-                    "Got to a release (%s) that is older than the running version (%s) -- stopping looking for more",
+                    "Got to a release (%s) that is older than the running version (%s) -- stopping looking "
+                    "for more",
                     ver,
                     self.runtime_version,
                 )
@@ -354,19 +356,78 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         self.eol_warning_threshold_days = eol_warning_threshold_days
         self.dismissal_period_days = dismissal_period_days
 
-    def get_eol_level(self, days_to_eol):
-        """Get the level of the EOL warning based on the number of days to EOL."""
-        if days_to_eol is None:
-            return ''
-        if days_to_eol <= 0:
-            return 'critical'
-        elif days_to_eol <= self.eol_warning_threshold_days:
-            return 'warning'
-        return ''
+    def get_update_notice(
+        self, sorted_releases: list, runtime_version: version.Version, base_version: int
+    ) -> dict[str, Any] | None:
+        """
+        Get the update notice information if there is a newer version available.
 
-    def available_update(self):
-        from .models import AstronomerAvailableVersion, DismissedEOLWarning
+        :param sorted_releases: A list of available releases sorted by version.
+        :param runtime_version: The current runtime version.
+        :param base_version: The base version of the runtime.
+        """
+        update_notice = None
+        for rel in sorted_releases:
+            # Only notify about the latest release if the user is in the highest patch level.
+            # On runtime:
+            # if the user is on version 5.0.6 and 5.0.8, 6.0.0 are available,
+            # notify the user about 5.0.8 and don't notify user about 6.0.0.
+            rel_parsed_version = version.parse(rel.version)
+            rel_parsed_base_version = rel_parsed_version.major
+
+            if rel_parsed_version > runtime_version and rel_parsed_base_version == base_version:
+                update_notice = {
+                    "level": rel.level,
+                    "date_released": rel.date_released,
+                    "description": rel.description,
+                    "version": rel.version,
+                    "url": rel.url,
+                    "app_name": "Astronomer Runtime",
+                }
+                break
+
+        if not update_notice and sorted_releases:
+            recent_release = sorted_releases[0]
+            update_notice = {
+                'level': recent_release.level,
+                'date_released': recent_release.date_released,
+                'description': recent_release.description,
+                'version': recent_release.version,
+                'url': recent_release.url,
+                "app_name": "Astronomer Runtime",
+            }
+
+        return update_notice
+
+    def get_eol_notice(self, current_version) -> dict[str, Any] | None:
+        """
+        Get the EOL notice information if the current version is near or past its EOL.
+
+        :param current_version: The current runtime version information.
+        """
+        if current_version and current_version.end_of_support:
+            now = utcnow()
+            days_to_eol = (current_version.end_of_support - now).days
+            eol_level = (
+                'critical'
+                if days_to_eol <= 0
+                else 'warning'
+                if days_to_eol <= self.eol_warning_threshold_days
+                else ''
+            )
+            return {
+                "level": eol_level,
+                "version": current_version.version,
+                "app_name": "Astronomer Runtime",
+                "days_to_eol": days_to_eol,
+                "dismissed_until": current_version.eos_dismissed_until,
+            }
+        return None
+
+    def available_update(self) -> dict[str, dict[str, Any] | None]:
+        """Check for available updates and EOL notices for the current runtime version."""
         from .plugin import eol_warning_opt_out
+        from .models import AstronomerAvailableVersion
 
         session = get_state(app=current_app).db.session
         available_releases = session.query(AstronomerAvailableVersion).filter(
@@ -377,106 +438,19 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         base_version = runtime_version.major
 
         sorted_releases = sorted(available_releases, key=lambda v: version.parse(v.version), reverse=True)
-        for rel in sorted_releases:
-            # Only notify about the latest release if the user is in the highest patch level.
-            # On runtime:
-            # if the user is on version 5.0.6 and 5.0.8, 6.0.0 are available,
-            # notify the user about 5.0.8 and don't notify user about 6.0.0.
-            rel_parsed_version = version.parse(rel.version)
 
-            rel_parsed_base_version = rel_parsed_version.major
+        update_notice = self.get_update_notice(sorted_releases, runtime_version, base_version)
 
-            if rel_parsed_version > runtime_version and rel_parsed_base_version == base_version:
-                days_to_eol = None
-                if rel.end_of_support:
-                    now = utcnow()
-                    days_to_eol = (rel.end_of_support - now).days
-                dismissed_until = self.get_dismissed_until(rel.version)
-                return {
-                    "level": self.get_eol_level(days_to_eol),
-                    "date_released": rel.date_released,
-                    "description": rel.description,
-                    "version": rel.version,
-                    "url": rel.url,
-                    "app_name": "Astronomer Runtime",
-                    "days_to_eol": days_to_eol,
-                    "dismissed_until": dismissed_until,
-                }
-
-            if not eol_warning_opt_out:
-                current_version = (
-                    session.query(AstronomerAvailableVersion)
-                    .filter(AstronomerAvailableVersion.version == str(runtime_version))
-                    .one_or_none()
-                )
-
-                if current_version and current_version.end_of_support:
-                    dismissed_eol_warning = (
-                        session.query(DismissedEOLWarning)
-                        .filter(
-                            DismissedEOLWarning.version == str(runtime_version),
-                            DismissedEOLWarning.dismissed_until > utcnow(),
-                        )
-                        .one_or_none()
-                    )
-
-                    if not dismissed_eol_warning:
-                        now = utcnow()
-                        days_to_eol = (current_version.end_of_support - now).days
-                        if days_to_eol <= 0:
-                            return {
-                                "level": self.get_eol_level(days_to_eol),
-                                "date_released": current_version.date_released,
-                                "description": "Current runtime version has reached its end of life!",
-                                "version": current_version.version,
-                                "url": current_version.url,
-                                "app_name": "Astronomer Runtime",
-                                "days_to_eol": days_to_eol,
-                                "dismissed_until": None,
-                            }
-                        elif days_to_eol <= self.eol_warning_threshold_days:
-                            return {
-                                "level": self.get_eol_level(days_to_eol),
-                                "date_released": current_version.date_released,
-                                "description": f"Current runtime version will reach its end of life in {days_to_eol} days.",
-                                "version": current_version.version,
-                                "url": current_version.url,
-                                "app_name": "Astronomer Runtime",
-                                "days_to_eol": days_to_eol,
-                                "dismissed_until": None,
-                            }
-
-        if sorted_releases:
-            recent_release = sorted_releases[0]
-            days_to_eol = None
-            if recent_release.end_of_support:
-                now = utcnow()
-                days_to_eol = (recent_release.end_of_support - now).days
-            return {
-                'level': self.get_eol_level(days_to_eol),
-                'date_released': recent_release.date_released,
-                'description': recent_release.description,
-                'version': recent_release.version,
-                'url': recent_release.url,
-                "app_name": "Astronomer Runtime",
-                "days_to_eol": days_to_eol,
-                "dismissed_until": None,
-            }
-
-        return None
-
-    def get_dismissed_until(self, version):
-        from .models import DismissedEOLWarning
-
-        with create_session() as session:
-            dismissed_warning = (
-                session.query(DismissedEOLWarning)
-                .filter(DismissedEOLWarning.version == version)
+        eol_notice = None
+        if not eol_warning_opt_out:
+            current_version = (
+                session.query(AstronomerAvailableVersion)
+                .filter(AstronomerAvailableVersion.version == str(runtime_version))
                 .one_or_none()
             )
-            if dismissed_warning:
-                return dismissed_warning.dismissed_until
-        return None
+            eol_notice = self.get_eol_notice(current_version)
+
+        return {"update_notice": update_notice, "eol_notice": eol_notice}
 
     def new_template_vars(self):
         return {
@@ -485,7 +459,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
             'airflow_base_template': self.airflow_base_template,
             'eol_warning_threshold_days': self.eol_warning_threshold_days,
             'eol_dismiss_days': self.dismissal_period_days,
-            'utcnow': utcnow,
+            'current_time': utcnow(),
         }
 
     class UpdateAvailable(BaseApi):
@@ -504,26 +478,17 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         @has_access([("can_dismiss", 'UpdateAvailable')])
         @action_logging
         def dismiss_eol(self, version):
-            from .models import DismissedEOLWarning
             from .plugin import dismissal_period_days
+            from .models import AstronomerAvailableVersion
 
             dismiss_until = utcnow() + timedelta(days=dismissal_period_days)
 
             with create_session() as session:
-                dismissed_eol_warning = (
-                    session.query(DismissedEOLWarning)
-                    .filter(
-                        DismissedEOLWarning.version == version,
-                    )
-                    .one_or_none()
+                session.query(AstronomerAvailableVersion).filter(
+                    AstronomerAvailableVersion.version == version,
+                ).update(
+                    {AstronomerAvailableVersion.eos_dismissed_until: dismiss_until}, synchronize_session=False
                 )
-
-                if dismissed_eol_warning:
-                    dismissed_eol_warning.dismissed_until = dismiss_until
-                else:
-                    session.add(DismissedEOLWarning(version=version, dismissed_until=dismiss_until))
-
-                session.commit()
 
             return self.response(200)
 
