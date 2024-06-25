@@ -29,28 +29,15 @@
 
   {% if cea_eol_notice %}
     {% set eol_level = "warning" if cea_eol_notice.days_to_eol > 0 else "error" %}
-    {% if cea_eol_notice.days_to_eol > 0 and cea_eol_notice.days_to_eol <= eol_warning_threshold_days %}
-      {% if not cea_eol_notice.dismissed_until or current_time > cea_eol_notice.dismissed_until %}
-        <div class="alert alert-{{ eol_level }} ac-eol-notice">
-          <p>
-            <strong>{{ cea_eol_notice.app_name }} version {{ cea_eol_notice.version }} will reach its end of life in {{ cea_eol_notice.days_to_eol }} days.</strong>
-            {% if "can_dismiss" | is_item_visible("UpdateAvailable") %}
-              <button data-href="{{ url_for('UpdateAvailable.dismiss_eol', version=cea_eol_notice.version) }}" title="Dismiss this warning for {{ eol_dismiss_days }} days">&times; Dismiss</button>
-            {% endif %}
-          </p>
-        </div>
-      {% endif %}
-    {% elif cea_eol_notice.days_to_eol <= 0 %}
-      {% if not cea_eol_notice.dismissed_until or current_time > cea_eol_notice.dismissed_until %}
-        <div class="alert alert-{{ eol_level }} ac-eol-notice">
-          <p>
-            <strong>{{ cea_eol_notice.app_name }} version {{ cea_eol_notice.version }} has reached its end of life!</strong>
-            {% if "can_dismiss" | is_item_visible("UpdateAvailable") %}
-              <button data-href="{{ url_for('UpdateAvailable.dismiss_eol', version=cea_eol_notice.version) }}" title="Dismiss this warning for {{ eol_dismiss_days }} days">&times; Dismiss</button>
-            {% endif %}
-          </p>
-        </div>
-      {% endif %}
+    {% if not cea_eol_notice.dismissed_until or current_time > cea_eol_notice.dismissed_until %}
+      <div class="alert alert-{{ eol_level }} ac-eol-notice">
+        <p>
+          <strong>{{ cea_eol_notice.description }}</strong>
+          {% if "can_dismiss" | is_item_visible("UpdateAvailable") %}
+            <button data-href="{{ url_for('UpdateAvailable.dismiss_eol', version=cea_eol_notice.version) }}" title="Dismiss this warning for {{ eol_dismiss_days }} days">&times; Dismiss</button>
+          {% endif %}
+        </p>
+      </div>
     {% endif %}
   {% endif %}
 {% endif %}
