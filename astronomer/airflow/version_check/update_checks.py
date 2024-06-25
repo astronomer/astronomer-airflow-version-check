@@ -135,6 +135,9 @@ class CheckThread(threading.Thread, LoggingMixin):
         rand_delay = random.uniform(5, 20)
         self.log.debug("Waiting %d seconds before doing first check", rand_delay)
         time.sleep(rand_delay)
+
+        self.add_current_version_to_db()
+
         while True:
             try:
                 update_available, wake_up_in = self.check_for_update()
@@ -161,6 +164,28 @@ class CheckThread(threading.Thread, LoggingMixin):
             for rel in available_releases:
                 if runtime_version >= version.parse(rel.version):
                     rel.hidden_from_ui = True
+
+    def add_current_version_to_db(self):
+        """
+        Add the current runtime version to the database.
+        """
+        from .models import AstronomerAvailableVersion
+
+        current_version_data = self.get_current_version_data()
+
+        with create_session() as session:
+            existing_version = session.query(AstronomerAvailableVersion).get(current_version_data['version'])
+            if existing_version:
+                self.log.info(
+                    "Current runtime version %s already exists in the database",
+                    current_version_data['version'],
+                )
+            else:
+                self.log.info(
+                    "Adding current runtime version %s to the database", current_version_data['version']
+                )
+                session.add(AstronomerAvailableVersion(**current_version_data))
+                session.commit()
 
     def check_for_update(self):
         """
@@ -208,6 +233,32 @@ class CheckThread(threading.Thread, LoggingMixin):
                     session.merge(release)
 
             return result, self.check_interval.total_seconds()
+
+    def get_current_version_data(self):
+        """
+        Create a dictionary for the current runtime version to store in the database.
+        """
+
+        current_runtime_version = get_runtime_version()
+        update_json = self._get_update_json()
+        current_version_metadata = (
+            update_json.get("runtimeVersions", {}).get(current_runtime_version, {}).get("metadata", {})
+        )
+
+        current_version_data = {
+            "version": current_runtime_version,
+            "level": "",
+            "date_released": pendulum.parse(
+                current_version_metadata.get('releaseDate', utcnow().isoformat()), timezone='UTC'
+            ),
+            "url": current_version_metadata.get('url', ''),
+            "description": current_version_metadata.get('description', 'Current running version'),
+            "end_of_support": pendulum.parse(current_version_metadata.get('endOfSupport'), timezone='UTC')
+            if current_version_metadata.get('endOfSupport')
+            else None,
+        }
+
+        return current_version_data
 
     def _process_update_json(self, update_document):
         from .models import AstronomerAvailableVersion
@@ -356,49 +407,6 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         self.eol_warning_threshold_days = eol_warning_threshold_days
         self.dismissal_period_days = dismissal_period_days
 
-    def get_update_notice(
-        self, sorted_releases: list, runtime_version: version.Version, base_version: int
-    ) -> dict[str, Any] | None:
-        """
-        Get the update notice information if there is a newer version available.
-
-        :param sorted_releases: A list of available releases sorted by version.
-        :param runtime_version: The current runtime version.
-        :param base_version: The base version of the runtime.
-        """
-        update_notice = None
-        for rel in sorted_releases:
-            # Only notify about the latest release if the user is in the highest patch level.
-            # On runtime:
-            # if the user is on version 5.0.6 and 5.0.8, 6.0.0 are available,
-            # notify the user about 5.0.8 and don't notify user about 6.0.0.
-            rel_parsed_version = version.parse(rel.version)
-            rel_parsed_base_version = rel_parsed_version.major
-
-            if rel_parsed_version > runtime_version and rel_parsed_base_version == base_version:
-                update_notice = {
-                    "level": rel.level,
-                    "date_released": rel.date_released,
-                    "description": rel.description,
-                    "version": rel.version,
-                    "url": rel.url,
-                    "app_name": "Astronomer Runtime",
-                }
-                break
-
-        if not update_notice and sorted_releases:
-            recent_release = sorted_releases[0]
-            update_notice = {
-                'level': recent_release.level,
-                'date_released': recent_release.date_released,
-                'description': recent_release.description,
-                'version': recent_release.version,
-                'url': recent_release.url,
-                "app_name": "Astronomer Runtime",
-            }
-
-        return update_notice
-
     def get_eol_notice(self, current_version) -> dict[str, Any] | None:
         """
         Get the EOL notice information if the current version is near or past its EOL.
@@ -424,9 +432,8 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
             }
         return None
 
-    def available_update(self) -> dict[str, dict[str, Any] | None]:
-        """Check for available updates and EOL notices for the current runtime version."""
-        from .plugin import eol_warning_opt_out
+    def available_update(self):
+        """Check if there is a new version of Astronomer Runtime available."""
         from .models import AstronomerAvailableVersion
 
         session = get_state(app=current_app).db.session
@@ -438,24 +445,60 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         base_version = runtime_version.major
 
         sorted_releases = sorted(available_releases, key=lambda v: version.parse(v.version), reverse=True)
+        for rel in sorted_releases:
+            # Only notify about the latest release if the user is in the highest patch level.
+            # On runtime:
+            # if the user is on version 5.0.6 and 5.0.8, 6.0.0 are available,
+            # notify the user about 5.0.8 and don't notify user about 6.0.0.
+            rel_parsed_version = version.parse(rel.version)
 
-        update_notice = self.get_update_notice(sorted_releases, runtime_version, base_version)
+            rel_parsed_base_version = rel_parsed_version.major
 
-        eol_notice = None
-        if not eol_warning_opt_out:
-            current_version = (
-                session.query(AstronomerAvailableVersion)
-                .filter(AstronomerAvailableVersion.version == str(runtime_version))
-                .one_or_none()
-            )
-            eol_notice = self.get_eol_notice(current_version)
+            if rel_parsed_version > runtime_version and rel_parsed_base_version == base_version:
+                return {
+                    "level": rel.level,
+                    "date_released": rel.date_released,
+                    "description": rel.description,
+                    "version": rel.version,
+                    "url": rel.url,
+                    "app_name": "Astronomer Runtime",
+                }
 
-        return {"update_notice": update_notice, "eol_notice": eol_notice}
+        if sorted_releases:
+            recent_release = sorted_releases[0]
+            return {
+                'level': recent_release.level,
+                'date_released': recent_release.date_released,
+                'description': recent_release.description,
+                'version': recent_release.version,
+                'url': recent_release.url,
+                "app_name": "Astronomer Runtime",
+            }
+
+        return None
+
+    def available_eol(self) -> dict[str, Any] | None:
+        """Check if there is an EOL notice for the current version of Astronomer Runtime."""
+        from .plugin import eol_warning_opt_out
+        from .models import AstronomerAvailableVersion
+
+        if eol_warning_opt_out:
+            return None
+
+        session = get_state(app=current_app).db.session
+        runtime_version = version.parse(get_runtime_version())
+        current_version = (
+            session.query(AstronomerAvailableVersion)
+            .filter(AstronomerAvailableVersion.version == str(runtime_version))
+            .one_or_none()
+        )
+        return self.get_eol_notice(current_version)
 
     def new_template_vars(self):
         return {
             # Fetch it once per template render, not each time it's accessed
             'cea_update_available': lazy_object_proxy.Proxy(self.available_update),
+            'cea_eol_notice': lazy_object_proxy.Proxy(self.available_eol),
             'airflow_base_template': self.airflow_base_template,
             'eol_warning_threshold_days': self.eol_warning_threshold_days,
             'eol_dismiss_days': self.dismissal_period_days,
