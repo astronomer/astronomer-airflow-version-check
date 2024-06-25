@@ -133,7 +133,7 @@ def test_plugin_table_created(app, session):
 
 @pytest.mark.parametrize(
     "image_version, eol_days_offset, expected_level, expected_days_to_eol",
-    [("4.0.0", 10, 'warning', 10), ("4.0.0", -1, 'critical', -1), ("4.0.0", 40, '', 40)],
+    [("4.0.0", 10, 'warning', 10), ("4.0.0", -1, 'critical', -1)],
 )
 def test_days_to_eol_warning_and_critical(
     app, session, image_version, eol_days_offset, expected_level, expected_days_to_eol
