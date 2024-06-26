@@ -470,6 +470,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
                     "version": rel.version,
                     "url": rel.url,
                     "app_name": "Astronomer Runtime",
+                    "yanked": rel.yanked,
                 }
 
         if sorted_releases:
@@ -481,6 +482,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
                 'version': recent_release.version,
                 'url': recent_release.url,
                 "app_name": "Astronomer Runtime",
+                "yanked": recent_release.yanked,
             }
 
         return None
