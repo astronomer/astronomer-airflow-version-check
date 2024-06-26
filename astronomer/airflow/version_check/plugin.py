@@ -4,7 +4,8 @@ import logging
 from airflow.configuration import conf
 from airflow.plugins_manager import AirflowPlugin
 from airflow.utils.db import create_session
-from sqlalchemy import inspect, Column, MetaData, Table
+from sqlalchemy import inspect, Column, MetaData, Table, DDL
+from sqlalchemy.exc import SQLAlchemyError
 from airflow.utils.sqlalchemy import UtcDateTime
 
 from .update_checks import UpdateAvailableBlueprint
@@ -111,21 +112,34 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
                 ),
             },
         }
-
         for table_name, columns in migrations.items():
             existing_columns = [col['name'] for col in inspector.get_columns(table_name)]
             for column_name, column_obj in columns.items():
                 if column_name not in existing_columns:
                     cls.add_column(engine, table_name, column_obj)
 
-    @staticmethod
-    def add_column(engine, table_name, column_obj) -> None:
+    @classmethod
+    def add_column(cls, engine, table_name, column_obj) -> None:
         """Add a column to a table."""
-        log.info(f"Adding column {column_obj.name} to {table_name} table")
-        metadata = MetaData()
-        table = Table(table_name, metadata, autoload_with=engine)
-        column_obj.create(table)
-        log.info(f"Added column {column_obj.name}")
+        try:
+            metadata = MetaData()
+            table = Table(table_name, metadata, autoload_with=engine)
+            if column_obj.name not in [column.name for column in table.columns]:
+                ddl_statement = DDL(
+                    f"ALTER TABLE {table_name} ADD COLUMN {column_obj.name} {column_obj.type.compile(engine.dialect)}"
+                )
+                if not column_obj.nullable:
+                    ddl_statement = DDL(
+                        f"ALTER TABLE {table_name} ADD COLUMN {column_obj.name} {column_obj.type.compile(engine.dialect)} NOT NULL"
+                    )
+                with engine.connect() as conn:
+                    conn.execute(ddl_statement)
+                    conn.commit()
+                    log.info(f"Column {column_obj.name} added to {table_name} table")
+            else:
+                log.info(f"Column {column_obj.name} already exists in {table_name} table")
+        except SQLAlchemyError as e:
+            log.error(f"Failed to add column {column_obj.name} to {table_name}: {str(e)}")
 
     @classmethod
     def create_db_tables(cls):
