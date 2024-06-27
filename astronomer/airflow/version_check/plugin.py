@@ -4,9 +4,11 @@ import logging
 from airflow.configuration import conf
 from airflow.plugins_manager import AirflowPlugin
 from airflow.utils.db import create_session
-from sqlalchemy import inspect, Column, MetaData, Table, DDL
+from sqlalchemy import inspect, Column
 from sqlalchemy.exc import SQLAlchemyError
 from airflow.utils.sqlalchemy import UtcDateTime
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
 
 from .update_checks import UpdateAvailableBlueprint
 
@@ -96,7 +98,7 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
 
     @classmethod
     def create_columns_for_migration(cls, session):
-        """Create columns for the migration."""
+        """Create columns for the migration using Alembic."""
         from .models import AstronomerAvailableVersion
 
         engine = session.get_bind(mapper=None, clause=None)
@@ -105,41 +107,34 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
             inspector = engine
 
         migrations = {
-            AstronomerAvailableVersion.__tablename__: {
-                'end_of_support': Column('end_of_support', UtcDateTime(timezone=True), nullable=True),
-                'eos_dismissed_until': Column(
-                    'eos_dismissed_until', UtcDateTime(timezone=True), nullable=True
-                ),
-            },
+            AstronomerAvailableVersion.__tablename__: [
+                Column('end_of_support', UtcDateTime(timezone=True), nullable=True),
+                Column('eos_dismissed_until', UtcDateTime(timezone=True), nullable=True),
+            ],
         }
         for table_name, columns in migrations.items():
             existing_columns = [col['name'] for col in inspector.get_columns(table_name)]
-            for column_name, column_obj in columns.items():
-                if column_name not in existing_columns:
-                    cls.add_column(engine, table_name, column_obj)
+            columns_to_add = [col for col in columns if col.name not in existing_columns]
+            if columns_to_add:
+                cls.add_columns(engine, table_name, columns_to_add)
 
     @classmethod
-    def add_column(cls, engine, table_name, column_obj) -> None:
+    def add_columns(cls, engine, table_name, columns) -> None:
         """Add a column to a table."""
         try:
-            metadata = MetaData()
-            table = Table(table_name, metadata, autoload_with=engine)
-            if column_obj.name not in [column.name for column in table.columns]:
-                ddl_statement = DDL(
-                    f"ALTER TABLE {table_name} ADD COLUMN {column_obj.name} {column_obj.type.compile(engine.dialect)}"
-                )
-                if not column_obj.nullable:
-                    ddl_statement = DDL(
-                        f"ALTER TABLE {table_name} ADD COLUMN {column_obj.name} {column_obj.type.compile(engine.dialect)} NOT NULL"
-                    )
-                with engine.connect() as conn:
-                    conn.execute(ddl_statement)
-                    conn.commit()
-                    log.info(f"Column {column_obj.name} added to {table_name} table")
-            else:
-                log.info(f"Column {column_obj.name} already exists in {table_name} table")
+            connection = engine.connect()
+            transaction = connection.begin()
+            context = MigrationContext.configure(connection)
+            op = Operations(context)
+
+            for column in columns:
+                op.add_column(table_name, column)
+                log.info("Column %s added to %s table", column.name, table_name)
+
+            transaction.commit()
+            connection.close()
         except SQLAlchemyError as e:
-            log.error(f"Failed to add column {column_obj.name} to {table_name}: {str(e)}")
+            log.error("Failed to add columns to %s: %s", table_name, str(e))
 
     @classmethod
     def create_db_tables(cls):
