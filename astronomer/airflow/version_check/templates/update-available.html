@@ -29,7 +29,6 @@
 
   {% if cea_eol_notice %}
     {% set eol_level = "warning" if cea_eol_notice.days_to_eol > 0 else "error" %}
-    {% if not cea_eol_notice.dismissed_until or current_time > cea_eol_notice.dismissed_until %}
       <div class="alert alert-{{ eol_level }} ac-eol-notice">
         <p>
           <strong>{{ cea_eol_notice.description }}</strong>
@@ -38,6 +37,5 @@
           {% endif %}
         </p>
       </div>
-    {% endif %}
   {% endif %}
 {% endif %}

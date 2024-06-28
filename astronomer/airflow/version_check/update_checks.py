@@ -417,22 +417,23 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
             now = utcnow()
             days_to_eol = (current_version.end_of_support - now).days
             if days_to_eol <= self.eol_warning_threshold_days:
-                eol_level = 'critical' if days_to_eol <= 0 else 'warning'
-                description = "{} version {} {}.".format(
-                    "Astronomer Runtime",
-                    current_version.version,
-                    "has reached its end of life"
-                    if days_to_eol <= 0
-                    else "will reach its end of life in %d days" % days_to_eol,
-                )
-                return {
-                    "level": eol_level,
-                    "version": current_version.version,
-                    "app_name": "Astronomer Runtime",
-                    "days_to_eol": days_to_eol,
-                    "description": description,
-                    "dismissed_until": current_version.eos_dismissed_until,
-                }
+                if not current_version.eos_dismissed_until or now > current_version.eos_dismissed_until:
+                    eol_level = 'critical' if days_to_eol <= 0 else 'warning'
+                    description = "{} version {} {}.".format(
+                        "Astronomer Runtime",
+                        current_version.version,
+                        "has reached its end of life"
+                        if days_to_eol <= 0
+                        else "will reach its end of life in %d days" % days_to_eol,
+                    )
+                    return {
+                        "level": eol_level,
+                        "version": current_version.version,
+                        "app_name": "Astronomer Runtime",
+                        "days_to_eol": days_to_eol,
+                        "description": description,
+                        "dismissed_until": current_version.eos_dismissed_until,
+                    }
         return None
 
     def available_update(self):
