@@ -3,6 +3,8 @@ from astronomer.airflow.version_check.update_checks import CheckThread, UpdateAv
 from unittest import mock
 import pytest
 from semver import Version as version
+from datetime import timedelta
+from airflow.utils.timezone import utcnow
 
 
 @pytest.fixture(autouse=True)
@@ -66,7 +68,7 @@ def test_update_check_for_image_already_on_the_highest_patch(app, session):
 def test_update_check_dont_show_update_if_no_new_version_available(mock_runtime_version, app, session):
     from airflow.utils.db import resetdb
 
-    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": '5.0.0'}):
+    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": '1.0.0'}):
         resetdb()
         vc = AstronomerVersionCheck(singleton=True)
         session.add(vc)
@@ -127,3 +129,72 @@ def test_plugin_table_created(app, session):
             x = inspector.has_table('astro_version_check')
         assert x
         thread.join(timeout=1)
+
+
+@pytest.mark.parametrize(
+    "image_version, eol_days_offset, expected_level, expected_days_to_eol",
+    [("4.0.0", 10, 'warning', 10), ("4.0.0", -1, 'critical', -1)],
+)
+def test_days_to_eol_warning_and_critical(
+    app, session, image_version, eol_days_offset, expected_level, expected_days_to_eol
+):
+    from airflow.utils.db import resetdb
+
+    end_of_support_date = utcnow() + timedelta(days=eol_days_offset)
+    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
+        resetdb()
+        vc = AstronomerVersionCheck(singleton=True)
+        session.add(vc)
+        session.commit()
+
+        av = AstronomerAvailableVersion(
+            version=image_version,
+            level="",
+            date_released=utcnow() - timedelta(days=100),
+            description="",
+            url="",
+            hidden_from_ui=False,
+            end_of_support=end_of_support_date,
+        )
+        session.add(av)
+        session.commit()
+
+        blueprint = UpdateAvailableBlueprint()
+        result = blueprint.available_eol()
+
+        assert abs(result['days_to_eol'] - expected_days_to_eol) <= 1
+        assert result['level'] == expected_level
+
+
+@pytest.mark.parametrize(
+    "image_version, yanked",
+    [("4.0.0", True), ("4.0.0", False)],
+)
+def test_yanked_version_warning(app, session, image_version, yanked):
+    from airflow.utils.db import resetdb
+
+    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
+        resetdb()
+        vc = AstronomerVersionCheck(singleton=True)
+        session.add(vc)
+        session.commit()
+
+        av = AstronomerAvailableVersion(
+            version=image_version,
+            level="",
+            date_released=utcnow() - timedelta(days=100),
+            description="",
+            url="",
+            hidden_from_ui=False,
+            yanked=yanked,
+        )
+        session.add(av)
+        session.commit()
+
+        blueprint = UpdateAvailableBlueprint()
+        result = blueprint.available_update()
+
+        if yanked:
+            assert result['yanked'] is True
+        else:
+            assert result['yanked'] is False
