@@ -35,12 +35,7 @@ def test_anon(client):
     assert b"update-notice.css" not in response.data, "Don't show notice when logged out"
 
 
-@pytest.mark.parametrize(
-    "columns",
-    [('end_of_support', 'eos_dismissed_until')],
-)
-def test_migrations_applied(session, columns):
-    """Verify that the migrations are applied correctly"""
+def test_migrations_applied(session):
     from astronomer.airflow.version_check.plugin import AstronomerVersionCheckPlugin
     from astronomer.airflow.version_check.models import AstronomerAvailableVersion
 
@@ -48,6 +43,9 @@ def test_migrations_applied(session, columns):
 
     engine = session.get_bind()
     table_name = AstronomerAvailableVersion.__tablename__
+
+    migration_columns = AstronomerVersionCheckPlugin.get_migration_columns()
+    columns = [col.name for col in migration_columns[table_name]]
 
     for column in columns:
         drop_column_if_exists(engine, table_name, column)

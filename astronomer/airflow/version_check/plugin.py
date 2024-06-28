@@ -91,6 +91,18 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
         CheckThread().start()
 
     @classmethod
+    def get_migration_columns(cls):
+        """Return the columns to be added during migration."""
+        from .models import AstronomerAvailableVersion
+
+        return {
+            AstronomerAvailableVersion.__tablename__: [
+                Column('end_of_support', UtcDateTime(timezone=True), nullable=True),
+                Column('eos_dismissed_until', UtcDateTime(timezone=True), nullable=True),
+            ],
+        }
+
+    @classmethod
     def migrate_db_tables(cls):
         """Apply migrations to the DB tables."""
         with create_session() as session:
