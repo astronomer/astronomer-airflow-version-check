@@ -111,19 +111,13 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
     @classmethod
     def create_columns_for_migration(cls, session):
         """Create columns for the migration using Alembic."""
-        from .models import AstronomerAvailableVersion
 
         engine = session.get_bind(mapper=None, clause=None)
         inspector = inspect(engine)
         if not getattr(inspector, 'has_table', None):
             inspector = engine
 
-        migrations = {
-            AstronomerAvailableVersion.__tablename__: [
-                Column('end_of_support', UtcDateTime(timezone=True), nullable=True),
-                Column('eos_dismissed_until', UtcDateTime(timezone=True), nullable=True),
-            ],
-        }
+        migrations = cls.get_migration_columns()
         for table_name, columns in migrations.items():
             existing_columns = [col['name'] for col in inspector.get_columns(table_name)]
             columns_to_add = [col for col in columns if col.name not in existing_columns]

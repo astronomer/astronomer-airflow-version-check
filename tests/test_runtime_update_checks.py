@@ -68,7 +68,7 @@ def test_update_check_for_image_already_on_the_highest_patch(app, session):
 def test_update_check_dont_show_update_if_no_new_version_available(mock_runtime_version, app, session):
     from airflow.utils.db import resetdb
 
-    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": '1.0.0'}):
+    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": '5.0.0'}):
         resetdb()
         vc = AstronomerVersionCheck(singleton=True)
         session.add(vc)

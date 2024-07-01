@@ -136,8 +136,6 @@ class CheckThread(threading.Thread, LoggingMixin):
         self.log.debug("Waiting %d seconds before doing first check", rand_delay)
         time.sleep(rand_delay)
 
-        self.add_current_version_to_db()
-
         while True:
             try:
                 update_available, wake_up_in = self.check_for_update()
@@ -164,28 +162,6 @@ class CheckThread(threading.Thread, LoggingMixin):
             for rel in available_releases:
                 if runtime_version >= version.parse(rel.version):
                     rel.hidden_from_ui = True
-
-    def add_current_version_to_db(self):
-        """
-        Add the current runtime version to the database.
-        """
-        from .models import AstronomerAvailableVersion
-
-        current_version_data = self.get_current_version_data()
-
-        with create_session() as session:
-            existing_version = session.query(AstronomerAvailableVersion).get(current_version_data['version'])
-            if existing_version:
-                self.log.info(
-                    "Current runtime version %s already exists in the database",
-                    current_version_data['version'],
-                )
-            else:
-                self.log.info(
-                    "Adding current runtime version %s to the database", current_version_data['version']
-                )
-                session.add(AstronomerAvailableVersion(**current_version_data))
-                session.commit()
 
     def check_for_update(self):
         """
@@ -282,9 +258,9 @@ class CheckThread(threading.Thread, LoggingMixin):
             ver = version.parse(release['version'])
             if release['channel'] in ['alpha', 'beta']:  # ignore alpha & beta releases
                 continue
-            if ver <= current_version:
+            if ver < current_version:
                 self.log.debug(
-                    "Got to a release (%s) that is older than the running version (%s) -- stopping looking "
+                    "Got to a release (%s) that is older or equal to the running version (%s) -- stopping looking "
                     "for more",
                     ver,
                     self.runtime_version,
@@ -504,9 +480,6 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
             'cea_update_available': lazy_object_proxy.Proxy(self.available_update),
             'cea_eol_notice': lazy_object_proxy.Proxy(self.available_eol),
             'airflow_base_template': self.airflow_base_template,
-            'eol_warning_threshold_days': self.eol_warning_threshold_days,
-            'eol_dismiss_days': self.dismissal_period_days,
-            'current_time': utcnow(),
         }
 
     class UpdateAvailable(BaseApi):
