@@ -3,6 +3,8 @@ from astronomer.airflow.version_check.update_checks import CheckThread, UpdateAv
 from unittest import mock
 import pytest
 from semver import Version as version
+from datetime import timedelta
+from airflow.utils.timezone import utcnow
 
 
 @pytest.fixture(autouse=True)
@@ -127,3 +129,38 @@ def test_plugin_table_created(app, session):
             x = inspector.has_table('astro_version_check')
         assert x
         thread.join(timeout=1)
+
+
+@pytest.mark.parametrize(
+    "image_version, eol_days_offset, expected_level, expected_days_to_eol",
+    [("4.0.0", 10, 'warning', 10), ("4.0.0", -1, 'critical', -1)],
+)
+def test_days_to_eol_warning_and_critical(
+    app, session, image_version, eol_days_offset, expected_level, expected_days_to_eol
+):
+    from airflow.utils.db import resetdb
+
+    end_of_support_date = utcnow() + timedelta(days=eol_days_offset)
+    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
+        resetdb()
+        vc = AstronomerVersionCheck(singleton=True)
+        session.add(vc)
+        session.commit()
+
+        av = AstronomerAvailableVersion(
+            version=image_version,
+            level="",
+            date_released=utcnow() - timedelta(days=100),
+            description="",
+            url="",
+            hidden_from_ui=False,
+            end_of_support=end_of_support_date,
+        )
+        session.add(av)
+        session.commit()
+
+        blueprint = UpdateAvailableBlueprint()
+        result = blueprint.available_eol()
+
+        assert abs(result['days_to_eol'] - expected_days_to_eol) <= 1
+        assert result['level'] == expected_level
