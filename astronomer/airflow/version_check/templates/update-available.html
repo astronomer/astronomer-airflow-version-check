@@ -29,7 +29,7 @@
 
   {% if cea_eol_notice %}
     {% set eol_level = "error" if cea_eol_notice.level == "critical" else "warning" %}
-      <div class="alert alert-{{ eol_level }} ac-eol-notice">
+      <div class="alert alert-{{ eol_level }} rt-eol-notice">
         <p>
           <strong>{{ cea_eol_notice.description }}</strong>
           {% if "can_dismiss" | is_item_visible("UpdateAvailable") %}

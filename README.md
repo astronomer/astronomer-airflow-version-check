@@ -40,5 +40,3 @@ variables prefixed with `AIRFLOW__ASTRONOMER__`.
 - `eol_warning_threshold_days`
 
   Sets the threshold for showing EOL warnings. The default is 30 days.
-
-
