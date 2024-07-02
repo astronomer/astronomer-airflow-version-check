@@ -204,7 +204,7 @@ class CheckThread(threading.Thread, LoggingMixin):
                     session.add(release)
                     result = UpdateResult.SUCCESS_UPDATE_AVAIL
                 else:
-                    self.log.debug("Updating existing update record", release.version)
+                    self.log.debug("Updating existing update record for %s", release.version)
                     # Update the record if needed.
                     session.merge(release)
 
