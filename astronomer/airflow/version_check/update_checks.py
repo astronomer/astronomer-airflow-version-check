@@ -210,32 +210,6 @@ class CheckThread(threading.Thread, LoggingMixin):
 
             return result, self.check_interval.total_seconds()
 
-    def get_current_version_data(self):
-        """
-        Create a dictionary for the current runtime version to store in the database.
-        """
-
-        current_runtime_version = get_runtime_version()
-        update_json = self._get_update_json()
-        current_version_metadata = (
-            update_json.get("runtimeVersions", {}).get(current_runtime_version, {}).get("metadata", {})
-        )
-
-        current_version_data = {
-            "version": current_runtime_version,
-            "level": "",
-            "date_released": pendulum.parse(
-                current_version_metadata.get('releaseDate', utcnow().isoformat()), timezone='UTC'
-            ),
-            "url": current_version_metadata.get('url', ''),
-            "description": current_version_metadata.get('description', 'Current running version'),
-            "end_of_support": pendulum.parse(current_version_metadata.get('endOfSupport'), timezone='UTC')
-            if current_version_metadata.get('endOfSupport')
-            else None,
-        }
-
-        return current_version_data
-
     def _process_update_json(self, update_document):
         from .models import AstronomerAvailableVersion
 
@@ -266,6 +240,7 @@ class CheckThread(threading.Thread, LoggingMixin):
                     self.runtime_version,
                 )
                 break
+            hidden_from_ui = ver <= current_version
 
             if 'release_date' in release:
                 release_date = pendulum.parse(release['release_date'], timezone='UTC')
@@ -285,6 +260,7 @@ class CheckThread(threading.Thread, LoggingMixin):
                 url=release.get('url'),
                 description=release.get('description'),
                 end_of_support=end_of_support,
+                hidden_from_ui=hidden_from_ui,
             )
 
     def _convert_runtime_versions(self, runtime_versions):
