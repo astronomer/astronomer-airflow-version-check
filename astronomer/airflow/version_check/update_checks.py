@@ -240,7 +240,6 @@ class CheckThread(threading.Thread, LoggingMixin):
                     self.runtime_version,
                 )
                 break
-            hidden_from_ui = ver <= current_version
 
             if 'release_date' in release:
                 release_date = pendulum.parse(release['release_date'], timezone='UTC')
@@ -252,16 +251,25 @@ class CheckThread(threading.Thread, LoggingMixin):
                 if release.get('end_of_support') is not None
                 else None
             )
-
-            yield AstronomerAvailableVersion(
-                version=release['version'],
-                level=release['level'],
-                date_released=release_date,
-                url=release.get('url'),
-                description=release.get('description'),
-                end_of_support=end_of_support,
-                hidden_from_ui=hidden_from_ui,
-            )
+            if ver == current_version:
+                yield AstronomerAvailableVersion(
+                    version=release['version'],
+                    level=release['level'],
+                    date_released=release_date,
+                    url=release.get('url'),
+                    description=release.get('description'),
+                    end_of_support=end_of_support,
+                    hidden_from_ui=True,
+                )
+            else:
+                yield AstronomerAvailableVersion(
+                    version=release['version'],
+                    level=release['level'],
+                    date_released=release_date,
+                    url=release.get('url'),
+                    description=release.get('description'),
+                    end_of_support=end_of_support,
+                )
 
     def _convert_runtime_versions(self, runtime_versions):
         """
