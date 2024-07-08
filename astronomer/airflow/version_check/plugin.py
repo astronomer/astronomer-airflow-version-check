@@ -10,7 +10,7 @@ from airflow.utils.sqlalchemy import UtcDateTime
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 
-from .update_checks import UpdateAvailableBlueprint
+from .update_checks import UpdateAvailableBlueprint, CheckThread
 
 __version__ = "2.0.3"
 
@@ -52,7 +52,7 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
 
         if not cls.all_table_created():
             cls.create_db_tables()
-        cls.migrate_db_tables()
+        cls.migrate_db_tables_and_upsert()
 
         try:
             import airflow.jobs.scheduler_job
@@ -103,10 +103,32 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
         }
 
     @classmethod
-    def migrate_db_tables(cls):
-        """Apply migrations to the DB tables."""
+    def migrate_db_tables_and_upsert(cls):
+        """Apply migrations to the DB tables and upsert data."""
         with create_session() as session:
             cls.create_columns_for_migration(session)
+            cls.insert_initial_data(session)
+
+    @classmethod
+    def insert_initial_data(cls, session):
+        """Insert or update initial data into the tables after migration."""
+        check_thread = CheckThread()
+        update_json = check_thread._get_update_json()
+
+        if not update_json:
+            log.warning("No update JSON fetched.")
+            return
+
+        for release in check_thread._process_update_json(update_json):
+            log.info("Upserting version %s into database.", str(release.version))
+            session.merge(release)
+
+        try:
+            session.commit()
+            log.info("Initial data insertion/updating completed successfully.")
+        except Exception as e:
+            session.rollback()
+            log.error("Error committing initial data to the database: %s", str(e))
 
     @classmethod
     def create_columns_for_migration(cls, session):

@@ -29,13 +29,13 @@
 
   {% if cea_eol_notice %}
     {% set eol_level = "error" if cea_eol_notice.level == "critical" else "warning" %}
-      <div class="alert alert-{{ eol_level }} rt-eol-notice">
-        <p>
-          <strong>{{ cea_eol_notice.description }}</strong>
-          {% if "can_dismiss" | is_item_visible("UpdateAvailable") %}
-            <button data-href="{{ url_for('UpdateAvailable.dismiss_eol', version=cea_eol_notice.version) }}" title="Dismiss this warning for {{ eol_dismiss_days }} days">&times; Dismiss</button>
-          {% endif %}
-        </p>
-      </div>
+    <div class="alert alert-{{ eol_level }} ac-update-notice">
+      <p>
+        <strong>{{ cea_eol_notice.description }}</strong>
+        {% if "can_dismiss" | is_item_visible("UpdateAvailable") %}
+          <button data-href="{{ url_for('UpdateAvailable.dismiss_eol', version=cea_eol_notice.version) }}" title="Dismiss this warning for {{ dismissal_period_days }} days">&times; Dismiss</button>
+        {% endif %}
+      </p>
+    </div>
   {% endif %}
 {% endif %}
