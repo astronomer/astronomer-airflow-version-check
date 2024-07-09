@@ -234,8 +234,7 @@ class CheckThread(threading.Thread, LoggingMixin):
                 continue
             if ver < current_version:
                 self.log.debug(
-                    "Got to a release (%s) that is older or equal to the running version (%s) -- stopping looking "
-                    "for more",
+                    "Got to a release (%s) that is older than the running version (%s) -- stopping looking for more",
                     ver,
                     self.runtime_version,
                 )
