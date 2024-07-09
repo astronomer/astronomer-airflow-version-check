@@ -79,6 +79,16 @@ class AstronomerVersionCheck(Base):
     def host_identifier():
         return f"{get_hostname()}-{os.getpid()}#{threading.get_ident()}"
 
+    @classmethod
+    def reset_last_checked(cls):
+        """
+        Reset the last_checked field to None for the singleton row
+        """
+        with create_session() as session:
+            row = session.query(cls).filter(cls.singleton.is_(True)).one()
+            row.last_checked = None
+            session.commit()
+
 
 class AstronomerAvailableVersion(Base):
     __tablename__ = "astro_available_version"

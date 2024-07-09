@@ -10,7 +10,7 @@ from airflow.utils.sqlalchemy import UtcDateTime
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 
-from .update_checks import UpdateAvailableBlueprint, CheckThread
+from .update_checks import UpdateAvailableBlueprint
 
 __version__ = "2.0.3"
 
@@ -106,29 +106,9 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
     def migrate_db_tables_and_upsert(cls):
         """Apply migrations to the DB tables and upsert data."""
         with create_session() as session:
-            cls.create_columns_for_migration(session)
-            cls.insert_initial_data(session)
-
-    @classmethod
-    def insert_initial_data(cls, session):
-        """Insert or update initial data into the tables after migration."""
-        check_thread = CheckThread()
-        update_json = check_thread._get_update_json()
-
-        if not update_json:
-            log.warning("No update JSON fetched.")
-            return
-
-        for release in check_thread._process_update_json(update_json):
-            log.info("Upserting version %s into database.", str(release.version))
-            session.merge(release)
-
-        try:
-            session.commit()
-            log.info("Initial data insertion/updating completed successfully.")
-        except Exception as e:
-            session.rollback()
-            log.error("Error committing initial data to the database: %s", str(e))
+            columns_added = cls.create_columns_for_migration(session)
+            if columns_added:
+                cls.reset_last_checked(session)
 
     @classmethod
     def create_columns_for_migration(cls, session):
@@ -140,11 +120,14 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
             inspector = engine
 
         migrations = cls.get_migration_columns()
+        columns_added = False
         for table_name, columns in migrations.items():
             existing_columns = [col['name'] for col in inspector.get_columns(table_name)]
             columns_to_add = [col for col in columns if col.name not in existing_columns]
             if columns_to_add:
                 cls.add_columns(engine, table_name, columns_to_add)
+                columns_added = True
+        return columns_added
 
     @classmethod
     def add_columns(cls, engine, table_name, columns) -> None:
@@ -163,6 +146,13 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
             connection.close()
         except SQLAlchemyError as e:
             log.error("Failed to add columns to %s: %s", table_name, str(e))
+
+    @classmethod
+    def reset_last_checked(cls, session):
+        """Reset the last_checked field to None in AstronomerVersionCheck."""
+        from .models import AstronomerVersionCheck
+
+        AstronomerVersionCheck.reset_last_checked()
 
     @classmethod
     def create_db_tables(cls):

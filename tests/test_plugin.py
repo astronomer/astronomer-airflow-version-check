@@ -15,10 +15,8 @@ def drop_column_if_exists(engine, table_name, column_name):
             conn.commit()
 
 
-@patch('astronomer.airflow.version_check.plugin.AstronomerVersionCheckPlugin.insert_initial_data')
-def test_plugin_registered(mock_insert_initial_data):
+def test_plugin_registered():
     """Verify that the plugin is registered"""
-    mock_insert_initial_data.return_value = None
     plugins_manager.ensure_plugins_loaded()
     assert len(plugins_manager.plugins) == 1
     assert plugins_manager.plugins[0].name == 'astronomer_version_check'
@@ -26,9 +24,7 @@ def test_plugin_registered(mock_insert_initial_data):
 
 
 @pytest.mark.login_as('Admin')
-@patch('astronomer.airflow.version_check.plugin.AstronomerVersionCheckPlugin.insert_initial_data')
-def test_logged_in(mock_insert_initial_data, client):
-    mock_insert_initial_data.return_value = None
+def test_logged_in(client):
     response = client.get(url_for('Airflow.index'), follow_redirects=True)
     assert response.status_code == 200
     assert b"update-notice.css" in response.data, "Ensure our template customizations are shown"
@@ -40,8 +36,8 @@ def test_anon(client):
     assert b"update-notice.css" not in response.data, "Don't show notice when logged out"
 
 
-@patch('astronomer.airflow.version_check.plugin.AstronomerVersionCheckPlugin.insert_initial_data')
-def test_migrations_applied(mock_insert_initial_data, session):
+@patch('astronomer.airflow.version_check.plugin.AstronomerVersionCheckPlugin.reset_last_checked')
+def test_migrations_applied(mock_reset_last_checked, session):
     from astronomer.airflow.version_check.plugin import AstronomerVersionCheckPlugin
     from astronomer.airflow.version_check.models import AstronomerAvailableVersion
 
@@ -68,4 +64,4 @@ def test_migrations_applied(mock_insert_initial_data, session):
     for column in columns:
         assert column in existing_columns
 
-    mock_insert_initial_data.assert_called_once()
+    mock_reset_last_checked.assert_called_once()
