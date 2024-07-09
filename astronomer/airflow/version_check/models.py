@@ -87,7 +87,6 @@ class AstronomerVersionCheck(Base):
         with create_session() as session:
             row = session.query(cls).filter(cls.singleton.is_(True)).one()
             row.last_checked = None
-            session.commit()
 
 
 class AstronomerAvailableVersion(Base):
