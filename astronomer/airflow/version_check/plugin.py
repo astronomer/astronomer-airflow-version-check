@@ -52,7 +52,7 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
 
         if not cls.all_table_created():
             cls.create_db_tables()
-        cls.migrate_db_tables_and_upsert()
+        cls.migrate_db_tables_and_reset_version_check()
 
         try:
             import airflow.jobs.scheduler_job
@@ -103,8 +103,8 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
         }
 
     @classmethod
-    def migrate_db_tables_and_upsert(cls):
-        """Apply migrations to the DB tables and upsert data."""
+    def migrate_db_tables_and_reset_version_check(cls):
+        """Apply migrations to the DB tables and reset the last_checked field."""
         with create_session() as session:
             columns_added = cls.create_columns_for_migration(session)
             if columns_added:

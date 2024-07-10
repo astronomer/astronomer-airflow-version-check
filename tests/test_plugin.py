@@ -57,7 +57,7 @@ def test_migrations_applied(mock_reset_last_checked, session):
     for column in columns:
         assert column not in existing_columns
 
-    AstronomerVersionCheckPlugin.migrate_db_tables_and_upsert()
+    AstronomerVersionCheckPlugin.migrate_db_tables_and_reset_version_check()
 
     inspector = inspect(engine)
     existing_columns = {col['name'] for col in inspector.get_columns(table_name)}
