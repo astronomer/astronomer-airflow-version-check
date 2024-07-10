@@ -14,7 +14,7 @@ def client(app, user, request):
     def test_while_logged_in(client):
         ....
 
-    def test_while_anon(clinet):
+    def test_while_anon(client):
         ...
 
     """

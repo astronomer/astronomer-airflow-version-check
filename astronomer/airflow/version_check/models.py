@@ -79,6 +79,15 @@ class AstronomerVersionCheck(Base):
     def host_identifier():
         return f"{get_hostname()}-{os.getpid()}#{threading.get_ident()}"
 
+    @classmethod
+    def reset_last_checked(cls):
+        """
+        Reset the last_checked field to None for the singleton row
+        """
+        with create_session() as session:
+            row = session.query(cls).filter(cls.singleton.is_(True)).one()
+            row.last_checked = None
+
 
 class AstronomerAvailableVersion(Base):
     __tablename__ = "astro_available_version"
@@ -88,5 +97,7 @@ class AstronomerAvailableVersion(Base):
     description = Column(Text)
     url = Column(Text)
     hidden_from_ui = Column(Boolean, default=False, nullable=False)
+    end_of_support = Column(UtcDateTime(timezone=True), nullable=True)
+    eos_dismissed_until = Column(UtcDateTime(timezone=True), nullable=True)
 
     __table_args__ = (Index('idx_astro_available_version_hidden', hidden_from_ui),)
