@@ -421,7 +421,8 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
             rel_parsed_version = version.parse(rel.version)
 
             rel_parsed_base_version = rel_parsed_version.major
-
+            if rel.yanked:
+                continue
             if rel_parsed_version > runtime_version and rel_parsed_base_version == base_version:
                 return {
                     "level": rel.level,
@@ -430,11 +431,12 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
                     "version": rel.version,
                     "url": rel.url,
                     "app_name": "Astronomer Runtime",
-                    "yanked": rel.yanked,
                 }
 
         if sorted_releases:
             recent_release = sorted_releases[0]
+            if recent_release.yanked:
+                return None
             return {
                 'level': recent_release.level,
                 'date_released': recent_release.date_released,
@@ -442,7 +444,6 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
                 'version': recent_release.version,
                 'url': recent_release.url,
                 "app_name": "Astronomer Runtime",
-                "yanked": recent_release.yanked,
             }
 
         return None
@@ -464,11 +465,35 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         )
         return self.get_eol_notice(current_version)
 
+    def available_yanked(self) -> dict[str, Any] | None:
+        """Check if the current version of Astronomer Runtime is yanked."""
+        from .models import AstronomerAvailableVersion
+
+        session = get_state(app=current_app).db.session
+        runtime_version = version.parse(get_runtime_version())
+        current_version = (
+            session.query(AstronomerAvailableVersion)
+            .filter(AstronomerAvailableVersion.version == str(runtime_version))
+            .one_or_none()
+        )
+
+        if current_version and current_version.yanked:
+            return {
+                "version": current_version.version,
+                "app_name": "Astronomer Runtime",
+                "description": "Warning: The current version {} of Astronomer Runtime has been yanked.".format(
+                    current_version.version,
+                ),
+            }
+
+        return None
+
     def new_template_vars(self):
         return {
             # Fetch it once per template render, not each time it's accessed
             'cea_update_available': lazy_object_proxy.Proxy(self.available_update),
             'cea_eol_notice': lazy_object_proxy.Proxy(self.available_eol),
+            'cea_yanked_warning': lazy_object_proxy.Proxy(self.available_yanked),
             'airflow_base_template': self.airflow_base_template,
         }
 

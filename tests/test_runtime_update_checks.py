@@ -170,7 +170,7 @@ def test_days_to_eol_warning_and_critical(
     "image_version, yanked",
     [("4.0.0", True), ("4.0.0", False)],
 )
-def test_yanked_version_warning(app, session, image_version, yanked):
+def test_yanked_version_excluded_from_updates(app, session, image_version, yanked):
     from airflow.utils.db import resetdb
 
     with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
@@ -195,6 +195,43 @@ def test_yanked_version_warning(app, session, image_version, yanked):
         result = blueprint.available_update()
 
         if yanked:
-            assert result['yanked'] is True
+            assert result is None
         else:
-            assert result['yanked'] is False
+            assert result['version'] == image_version
+            assert 'yanked' not in result
+
+
+@pytest.mark.parametrize(
+    "image_version, yanked",
+    [("4.0.0", True), ("4.0.0", False)],
+)
+def test_available_yanked(app, session, image_version, yanked):
+    from airflow.utils.db import resetdb
+
+    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
+        resetdb()
+        vc = AstronomerVersionCheck(singleton=True)
+        session.add(vc)
+        session.commit()
+
+        av = AstronomerAvailableVersion(
+            version=image_version,
+            level="",
+            date_released=utcnow() - timedelta(days=100),
+            description="",
+            url="",
+            hidden_from_ui=False,
+            yanked=yanked,
+        )
+        session.add(av)
+        session.commit()
+
+        blueprint = UpdateAvailableBlueprint()
+        result = blueprint.available_yanked()
+
+        if yanked:
+            assert result is not None
+            assert result['version'] == image_version
+            assert "yanked" in result['description']
+        else:
+            assert result is None

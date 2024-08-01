@@ -27,9 +27,9 @@
     </div>
   {% endif %}
 
-    {% if cea_update_available and cea_update_available.yanked %}
+  {% if cea_yanked_warning %}
     <div class="alert alert-warning ac-update-notice">
-      <p><strong>Warning: The current version {{ cea_update_available.version }} of {{ cea_update_available.app_name }} has been yanked.</strong></p>
+      <p><strong>{{ cea_yanked_warning.description }}</strong></p>
     </div>
   {% endif %}
 
