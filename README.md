@@ -7,8 +7,11 @@ message in the Airflow UI.
 Additionally, this plugin provides warnings in the Airflow UI for the following scenarios:
 - When the current version will reach its end of life (EOL) in 30 days (default, configurable).
 - When the current version has already reached its end of life (EOL).
+- When the current version has been yanked.
 
 This plugin also shows options to dismiss the EOL warnings for a configurable number of days (default is 7 days). There is also an option to completely disable the EOL warning.
+
+Additionally, it checks if the current running version of Astronomer Runtime has been yanked. If a yanked version is detected, a warning message will appear in the Airflow UI. Removed versions will not be displayed as available updates to prevent users from being prompted to upgrade to a yanked version.
 
 ## Settings
 
