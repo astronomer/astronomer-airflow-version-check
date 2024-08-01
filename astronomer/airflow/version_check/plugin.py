@@ -99,7 +99,7 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
             AstronomerAvailableVersion.__tablename__: [
                 Column('end_of_support', UtcDateTime(timezone=True), nullable=True),
                 Column('eos_dismissed_until', UtcDateTime(timezone=True), nullable=True),
-                Column('yanked', Boolean, nullable=False, default=False),
+                Column('yanked', Boolean, nullable=True, default=False),
             ],
         }
 
