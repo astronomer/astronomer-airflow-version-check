@@ -17,7 +17,7 @@ import requests
 import sqlalchemy.exc
 from typing import Callable, TypeVar, cast, Sequence
 from requests.exceptions import SSLError, HTTPError
-from sqlalchemy import inspect
+from sqlalchemy import inspect, or_
 from flask import Blueprint, current_app, flash, redirect, render_template, request, g
 from flask_appbuilder.api import BaseApi, expose
 from flask_sqlalchemy import get_state
@@ -406,7 +406,8 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
 
         session = get_state(app=current_app).db.session
         available_releases = session.query(AstronomerAvailableVersion).filter(
-            AstronomerAvailableVersion.hidden_from_ui.is_(False)
+            AstronomerAvailableVersion.hidden_from_ui.is_(False),
+            or_(AstronomerAvailableVersion.yanked.is_(False), AstronomerAvailableVersion.yanked.is_(None)),
         )
 
         runtime_version = version.parse(get_runtime_version())
@@ -421,8 +422,6 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
             rel_parsed_version = version.parse(rel.version)
 
             rel_parsed_base_version = rel_parsed_version.major
-            if rel.yanked:
-                continue
             if rel_parsed_version > runtime_version and rel_parsed_base_version == base_version:
                 return {
                     "level": rel.level,
@@ -435,8 +434,6 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
 
         if sorted_releases:
             recent_release = sorted_releases[0]
-            if recent_release.yanked:
-                return None
             return {
                 'level': recent_release.level,
                 'date_released': recent_release.date_released,
@@ -478,13 +475,12 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         )
 
         if current_version and current_version.yanked:
-            return {
-                "version": current_version.version,
-                "app_name": "Astronomer Runtime",
-                "description": "Warning: The current version {} of Astronomer Runtime has been yanked.".format(
-                    current_version.version,
-                ),
-            }
+            return (
+                "Warning: This version of Astronomer Runtime, {} has been yanked. "
+                "Please refer to the "
+                "<a href='https://www.astronomer.io/docs/astro/runtime-version-lifecycle-policy#restricted-runtime-versions' "
+                "target='_blank'>documentation</a> for more details.".format(current_version.version)
+            )
 
         return None
 

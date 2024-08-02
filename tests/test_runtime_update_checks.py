@@ -231,7 +231,6 @@ def test_available_yanked(app, session, image_version, yanked):
 
         if yanked:
             assert result is not None
-            assert result['version'] == image_version
-            assert "yanked" in result['description']
+            assert image_version in result
         else:
             assert result is None
