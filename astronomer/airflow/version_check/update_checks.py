@@ -470,16 +470,19 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         runtime_version = version.parse(get_runtime_version())
         current_version = (
             session.query(AstronomerAvailableVersion)
-            .filter(AstronomerAvailableVersion.version == str(runtime_version))
+            .filter(
+                AstronomerAvailableVersion.version == str(runtime_version),
+                AstronomerAvailableVersion.yanked.is_(True),
+            )
             .one_or_none()
         )
 
         if current_version and current_version.yanked:
             return (
-                "Warning: This version of Astronomer Runtime, {} has been yanked. "
+                f"Warning: This version of Astronomer Runtime, {runtime_version}, has been yanked. "
                 "Please refer to the "
                 "<a href='https://www.astronomer.io/docs/astro/runtime-version-lifecycle-policy#restricted-runtime-versions' "
-                "target='_blank'>documentation</a> for more details.".format(current_version.version)
+                "target='_blank'>documentation</a> for more details."
             )
 
         return None
