@@ -480,9 +480,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         if current_version and current_version.yanked:
             return (
                 f"Warning: This version of Astronomer Runtime, {runtime_version}, has been yanked. "
-                "Please refer to the "
-                "<a href='https://www.astronomer.io/docs/astro/runtime-version-lifecycle-policy#restricted-runtime-versions' "
-                "target='_blank'>documentation</a> for more details."
+                "We strongly recommend upgrading to a more recent supported version."
             )
 
         return None
