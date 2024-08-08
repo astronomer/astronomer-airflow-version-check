@@ -17,7 +17,7 @@ import requests
 import sqlalchemy.exc
 from typing import Callable, TypeVar, cast, Sequence
 from requests.exceptions import SSLError, HTTPError
-from sqlalchemy import inspect
+from sqlalchemy import inspect, or_
 from flask import Blueprint, current_app, flash, redirect, render_template, request, g
 from flask_appbuilder.api import BaseApi, expose
 from flask_sqlalchemy import get_state
@@ -259,6 +259,7 @@ class CheckThread(threading.Thread, LoggingMixin):
                     description=release.get('description'),
                     end_of_support=end_of_support,
                     hidden_from_ui=True,
+                    yanked=release.get('yanked', False),
                 )
             else:
                 yield AstronomerAvailableVersion(
@@ -268,6 +269,7 @@ class CheckThread(threading.Thread, LoggingMixin):
                     url=release.get('url'),
                     description=release.get('description'),
                     end_of_support=end_of_support,
+                    yanked=release.get('yanked', False),
                 )
 
     def _convert_runtime_versions(self, runtime_versions):
@@ -295,6 +297,7 @@ class CheckThread(threading.Thread, LoggingMixin):
                 "description": "",
                 "release_date": "2021-07-20",
                 "end_of_support": "2022-02-28",
+                "yanked": False
             }]
         """
         versions = []
@@ -308,6 +311,7 @@ class CheckThread(threading.Thread, LoggingMixin):
             new_dict['release_date'] = metadata['releaseDate']
             new_dict['channel'] = metadata['channel']
             new_dict['end_of_support'] = metadata.get('endOfSupport')
+            new_dict['yanked'] = metadata.get('yanked', False)
             versions.append(new_dict)
         return versions
 
@@ -325,6 +329,7 @@ class CheckThread(threading.Thread, LoggingMixin):
                         "channel": "deprecated",
                         "releaseDate": "2021-07-20",
                         "endOfSupport": "2022-02-28",
+                        "yanked": False,
                     },
                     "migrations": {"airflowDatabase": "true"},
                 },
@@ -401,7 +406,8 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
 
         session = get_state(app=current_app).db.session
         available_releases = session.query(AstronomerAvailableVersion).filter(
-            AstronomerAvailableVersion.hidden_from_ui.is_(False)
+            AstronomerAvailableVersion.hidden_from_ui.is_(False),
+            or_(AstronomerAvailableVersion.yanked.is_(False), AstronomerAvailableVersion.yanked.is_(None)),
         )
 
         runtime_version = version.parse(get_runtime_version())
@@ -416,7 +422,6 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
             rel_parsed_version = version.parse(rel.version)
 
             rel_parsed_base_version = rel_parsed_version.major
-
             if rel_parsed_version > runtime_version and rel_parsed_base_version == base_version:
                 return {
                     "level": rel.level,
@@ -457,11 +462,35 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         )
         return self.get_eol_notice(current_version)
 
+    def available_yanked(self) -> dict[str, Any] | None:
+        """Check if the current version of Astronomer Runtime is yanked."""
+        from .models import AstronomerAvailableVersion
+
+        session = get_state(app=current_app).db.session
+        runtime_version = version.parse(get_runtime_version())
+        current_version = (
+            session.query(AstronomerAvailableVersion)
+            .filter(
+                AstronomerAvailableVersion.version == str(runtime_version),
+                AstronomerAvailableVersion.yanked.is_(True),
+            )
+            .one_or_none()
+        )
+
+        if current_version and current_version.yanked:
+            return (
+                f"Warning: This version of Astronomer Runtime, {runtime_version}, has been yanked. "
+                "We strongly recommend upgrading to a more recent supported version."
+            )
+
+        return None
+
     def new_template_vars(self):
         return {
             # Fetch it once per template render, not each time it's accessed
             'cea_update_available': lazy_object_proxy.Proxy(self.available_update),
             'cea_eol_notice': lazy_object_proxy.Proxy(self.available_eol),
+            'cea_yanked_warning': lazy_object_proxy.Proxy(self.available_yanked),
             'airflow_base_template': self.airflow_base_template,
         }
 

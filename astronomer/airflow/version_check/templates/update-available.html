@@ -27,6 +27,12 @@
     </div>
   {% endif %}
 
+  {% if cea_yanked_warning %}
+    <div class="alert alert-warning ac-update-notice">
+      <p><strong>{{ cea_yanked_warning }}</strong></p>
+    </div>
+  {% endif %}
+
   {% if cea_eol_notice %}
     {% set eol_level = "error" if cea_eol_notice.level == "critical" else "warning" %}
     <div class="alert alert-{{ eol_level }} ac-update-notice">
