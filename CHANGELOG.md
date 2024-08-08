@@ -1,5 +1,10 @@
 # Changelog
 
+## Version 2.0.4
+- Update README.md to replace AC reference with runtime reference (#64)
+- Add warnings around current versions EOL date (#72)
+- Add Warning for Yanked Runtime Versions (#74)
+
 ## Version 2.0.3
 - Add has_access method to handle backward compatibility (#56)
 
