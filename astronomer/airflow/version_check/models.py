@@ -1,8 +1,9 @@
-import datetime
+from __future__ import annotations
+
 import os
 import logging
 import threading
-from typing import Optional
+from typing import TYPE_CHECKING
 
 import sqlalchemy.ext
 from airflow.models import Base
@@ -11,6 +12,11 @@ from airflow.utils.net import get_hostname
 from airflow.utils.timezone import utcnow
 from airflow.utils.sqlalchemy import UtcDateTime
 from sqlalchemy import Boolean, Column, Index, String, Text, or_
+
+if TYPE_CHECKING:
+    from datetime import timedelta
+    from sqlalchemy.orm import Session
+
 
 log = logging.getLogger(__name__)
 
@@ -41,8 +47,7 @@ class AstronomerVersionCheck(Base):
                 session.rollback()
 
     @classmethod
-    def acquire_lock(cls, check_interval, session):
-        # type: (datetime.timedelta, sqlalchemy.Session) -> Optional[AstronomerVersionCheck]
+    def acquire_lock(cls, check_interval: timedelta, session: Session) -> AstronomerVersionCheck | None:
         """
         Acquire an exclusive lock to perform an update check if the check is due
         and if another check is not already in progress.
@@ -101,4 +106,4 @@ class AstronomerAvailableVersion(Base):
     eos_dismissed_until = Column(UtcDateTime(timezone=True), nullable=True)
     yanked = Column(Boolean, default=False, nullable=True)
 
-    __table_args__ = (Index('idx_astro_available_version_hidden', hidden_from_ui),)
+    __table_args__ = (Index("idx_astro_available_version_hidden", hidden_from_ui),)

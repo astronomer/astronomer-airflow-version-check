@@ -386,9 +386,11 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
                     description = "{} version {} {}.".format(
                         "Astronomer Runtime",
                         current_version.version,
-                        "has reached its end of life"
-                        if days_to_eol <= 0
-                        else "will reach its end of life in %d days" % days_to_eol,
+                        (
+                            "has reached its end of life"
+                            if days_to_eol <= 0
+                            else "will reach its end of life in %d days" % days_to_eol
+                        ),
                     )
                     return {
                         "level": eol_level,
