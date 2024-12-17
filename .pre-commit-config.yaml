@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.4.0
+    rev: v5.0.0
     hooks:
       - id: check-case-conflict
       - id: check-executables-have-shebangs
@@ -10,27 +10,27 @@ repos:
       - id: mixed-line-ending
         args: ["--fix=lf"]
       - id: trailing-whitespace
-  - repo: https://github.com/detailyang/pre-commit-shell
-    rev: 1.0.5
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.10.0
     hooks:
-      - id: shell-lint
+      - id: shellcheck
   - repo: https://github.com/astronomer/pre-commit-hooks
-    rev: bd325c947efcba13c03b4f4c93d882f2f83ed6ff
+    rev: 8b2d969bd549cd7c9454cc8bb54eec5b35c2e5e6
     hooks:
-      - id: remove-en-dashes
-      - id: remove-unicode-non-breaking-spaces
+      - id: replace-en-dashes
+      - id: replace-unicode-non-breaking-spaces
       - id: remove-unicode-zero-width-non-breaking-spaces
       - id: remove-unicode-zero-width-space
   - repo: https://github.com/asottile/pyupgrade
-    rev: v2.7.4
+    rev: v3.19.0
     hooks:
       - id: pyupgrade
-        args: ["--py36-plus"]
+        args: ["--py38-plus"]
   - repo: https://github.com/psf/black
-    rev: 22.6.0
+    rev: 24.10.0
     hooks:
       - id: black
   - repo: https://github.com/pycqa/flake8
-    rev: 4.0.1
+    rev: 7.1.1
     hooks:
-    -   id: flake8
+      - id: flake8
