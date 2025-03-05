@@ -12,7 +12,7 @@ def mock_test_env(monkeypatch):
     monkeypatch.setenv('AIRFLOW__ASTRONOMER__UPDATE_URL', "https://updates.astronomer.io/astronomer-runtime")
 
 
-@pytest.mark.parametrize("image_version, new_patch_version", [("4.0.0", "4.2.9")])
+@pytest.mark.parametrize("image_version, new_patch_version", [("3.0-1", "3.1-1")])
 def test_update_check_for_image_with_newer_patch(image_version, new_patch_version, app, session):
     from airflow.utils.db import resetdb
 
@@ -26,7 +26,7 @@ def test_update_check_for_image_with_newer_patch(image_version, new_patch_versio
         thread.ac_version = image_version
         thread.check_for_update()
         # Here we check for the highest patch on the selected image
-        # If the image is 4.0.0, then the highest patch may be 4.2.6 not 5+
+        # If the image is 3.0-1, then the highest patch may be 3.0-2 not 4+
         latest_patch = (
             session.query(AstronomerAvailableVersion)
             .filter(AstronomerAvailableVersion.version.like(f"{new_patch_version}%"))
@@ -42,7 +42,7 @@ def test_update_check_for_image_with_newer_patch(image_version, new_patch_versio
 def test_update_check_for_image_already_on_the_highest_patch(app, session):
     from airflow.utils.db import resetdb
 
-    image_version = "4.2.9"  # highest patch of 4.0.0(using image that's no longer released)
+    image_version = "3.0-5"  # highest patch of 3.0-1(using image that's no longer released)
     with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
         resetdb()
         vc = AstronomerVersionCheck(singleton=True)
@@ -68,13 +68,13 @@ def test_update_check_for_image_already_on_the_highest_patch(app, session):
 def test_update_check_dont_show_update_if_no_new_version_available(mock_runtime_version, app, session):
     from airflow.utils.db import resetdb
 
-    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": '5.0.0'}):
+    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": '3.0-1'}):
         resetdb()
         vc = AstronomerVersionCheck(singleton=True)
         session.add(vc)
         session.commit()
         thread = CheckThread()
-        thread.runtime_version = '5.0.0'
+        thread.runtime_version = '4.0-1'
         available_releases = thread._get_update_json()['runtimeVersions']
 
         latest_version = list(available_releases)[-1]
@@ -92,14 +92,14 @@ def test_update_check_dont_show_update_if_no_new_version_available(mock_runtime_
 def test_alpha_beta_versions_are_not_recorded(app, session):
     from airflow.utils.db import resetdb
 
-    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": '4.0.0'}):
+    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": '3.0-1'}):
         resetdb()
         vc = AstronomerVersionCheck(singleton=True)
         session.add(vc)
         session.commit()
 
         thread = CheckThread()
-        thread.ac_version = '4.0.0'
+        thread.ac_version = '4.0-1'
         available_releases = thread._get_update_json()['runtimeVersions']
         alpha_beta = [
             k for k, v in available_releases.items() if v['metadata']['channel'] in ['alpha', 'beta']
