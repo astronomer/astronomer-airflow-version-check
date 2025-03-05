@@ -9,6 +9,7 @@ import sys
 import threading
 import time
 from datetime import timedelta
+import re
 
 import distro
 import lazy_object_proxy
@@ -210,12 +211,22 @@ class CheckThread(threading.Thread, LoggingMixin):
 
             return result, self.check_interval.total_seconds()
 
+    def _parse_new_version(self, version_str):
+        """
+        Parse versions like '3.0-1-nightly20241216' into a structured format.
+        """
+        # Extract major, minor, patch and metadata from version
+        match = re.match(r"(\d+)\.(\d+)(?:-(\d+))?", version_str)
+        major, minor, patch = match.groups()
+
+        return version.parse(f"{major}.{minor}.{patch}")
+
     def _process_update_json(self, update_document):
         from .models import AstronomerAvailableVersion
 
-        versions = self._convert_runtime_versions(update_document.get("runtimeVersions", {}))
+        versions = self._convert_runtime_versions(update_document.get("runtimeVersionsV3", {}))
 
-        current_version = version.parse(self.runtime_version)
+        current_version = self._parse_new_version(self.runtime_version)
 
         self.log.debug(
             "Raw versions in update document: %r",
@@ -223,54 +234,45 @@ class CheckThread(threading.Thread, LoggingMixin):
         )
 
         def parse_version(rel):
-            rel['parsed_version'] = version.parse(rel['version'])
+            rel['parsed_version'] = self._parse_new_version(rel['version'])
             return rel
 
         releases = map(parse_version, versions)
 
         for release in sorted(releases, key=lambda rel: rel['parsed_version'], reverse=True):
-            ver = version.parse(release['version'])
+            parsed_ver = release['parsed_version']
             if release['channel'] in ['alpha', 'beta']:  # ignore alpha & beta releases
                 continue
-            if ver < current_version:
+            if parsed_ver < current_version:
                 self.log.debug(
                     "Got to a release (%s) that is older than the running version (%s) -- stopping looking for more",
-                    ver,
+                    parsed_ver,
                     self.runtime_version,
                 )
                 break
 
-            if 'release_date' in release:
-                release_date = pendulum.parse(release['release_date'], timezone='UTC')
-            else:
-                release_date = utcnow()
+            release_date = (
+                pendulum.parse(release['release_date'], timezone='UTC')
+                if 'release_date' in release
+                else pendulum.now('UTC')
+            )
 
             end_of_support = (
                 pendulum.parse(release.get('end_of_support'), timezone='UTC')
-                if release.get('end_of_support') is not None
+                if release.get('end_of_support')
                 else None
             )
-            if ver == current_version:
-                yield AstronomerAvailableVersion(
-                    version=release['version'],
-                    level=release['level'],
-                    date_released=release_date,
-                    url=release.get('url'),
-                    description=release.get('description'),
-                    end_of_support=end_of_support,
-                    hidden_from_ui=True,
-                    yanked=release.get('yanked', False),
-                )
-            else:
-                yield AstronomerAvailableVersion(
-                    version=release['version'],
-                    level=release['level'],
-                    date_released=release_date,
-                    url=release.get('url'),
-                    description=release.get('description'),
-                    end_of_support=end_of_support,
-                    yanked=release.get('yanked', False),
-                )
+
+            yield AstronomerAvailableVersion(
+                version=release['version'],
+                level=release['level'],
+                date_released=release_date,
+                url=release.get('url'),
+                description=release.get('description'),
+                end_of_support=end_of_support,
+                hidden_from_ui=True if parsed_ver == current_version else False,
+                yanked=release.get('yanked', False),
+            )
 
     def _convert_runtime_versions(self, runtime_versions):
         """

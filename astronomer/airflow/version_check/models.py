@@ -25,7 +25,7 @@ class AstronomerVersionCheck(Base):
     __tablename__ = "astro_version_check"
     singleton = Column(Boolean, default=True, nullable=False, primary_key=True)
 
-    # For infomration only
+    # For information only
     last_checked = Column(UtcDateTime(timezone=True))
     last_checked_by = Column(Text)
 
