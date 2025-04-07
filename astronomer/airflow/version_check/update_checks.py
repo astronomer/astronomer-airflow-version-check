@@ -92,18 +92,12 @@ def has_access_(permissions: Sequence[tuple[str, str]]) -> Callable[[T], T]:
 
 def parse_new_version(version_str):
     """
-    Parse versions like '3.0-1-nightly20241216' and '2.0.1'.
+    Parse versions like '3.0-1-nightly20241216'.
     """
-    try:
-        parsed_version = version.parse(version_str)
-    except ValueError:
-
-        # Extract major, minor, patch and metadata from version
-        match = re.match(r"(\d+)\.(\d+)(?:-(\d+))?", version_str)
-        major, minor, patch = match.groups()
-        parsed_version = version.parse(f"{major}.{minor}.{patch}")
-
-    return parsed_version
+    # Extract major, minor, patch and metadata from version
+    match = re.match(r"(\d+)\.(\d+)(?:-(\d+))?", version_str)
+    major, minor, patch = match.groups()
+    return version.parse(f"{major}.{minor}.{patch}")
 
 
 # This code is introduced to maintain backward compatibility, since with airflow > 2.8
