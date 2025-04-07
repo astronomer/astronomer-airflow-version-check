@@ -2,7 +2,7 @@ from astronomer.airflow.version_check.models import AstronomerVersionCheck, Astr
 from astronomer.airflow.version_check.update_checks import CheckThread, UpdateAvailableBlueprint
 from unittest import mock
 import pytest
-from packaging.version import Version as version
+from packaging import version
 from datetime import timedelta
 from airflow.utils.timezone import utcnow
 
@@ -75,7 +75,7 @@ def test_update_check_dont_show_update_if_no_new_version_available(mock_runtime_
         session.commit()
         thread = CheckThread()
         thread.runtime_version = '4.0-1'
-        available_releases = thread._get_update_json()['runtimeVersions']
+        available_releases = thread._get_update_json()['runtimeVersionsV3']
 
         latest_version = list(available_releases)[-1]
         public = str(version.parse(latest_version))
@@ -133,7 +133,7 @@ def test_plugin_table_created(app, session):
 
 @pytest.mark.parametrize(
     "image_version, eol_days_offset, expected_level, expected_days_to_eol",
-    [("4.0.0", 10, 'warning', 10), ("4.0.0", -1, 'critical', -1)],
+    [("4.0-0", 10, 'warning', 10), ("4.0-0", -1, 'critical', -1)],
 )
 def test_days_to_eol_warning_and_critical(
     app, session, image_version, eol_days_offset, expected_level, expected_days_to_eol
@@ -168,7 +168,7 @@ def test_days_to_eol_warning_and_critical(
 
 @pytest.mark.parametrize(
     "image_version, yanked",
-    [("4.0.0", True), ("4.0.0", False)],
+    [("4.0-0", True), ("4.0-0", False)],
 )
 def test_yanked_version_excluded_from_updates(app, session, image_version, yanked):
     from airflow.utils.db import resetdb
@@ -203,7 +203,7 @@ def test_yanked_version_excluded_from_updates(app, session, image_version, yanke
 
 @pytest.mark.parametrize(
     "image_version, yanked",
-    [("4.0.0", True), ("4.0.0", False)],
+    [("4.0-0", True), ("4.0-0", False)],
 )
 def test_available_yanked(app, session, image_version, yanked):
     from airflow.utils.db import resetdb
