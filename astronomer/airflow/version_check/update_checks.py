@@ -31,9 +31,9 @@ from airflow.utils.timezone import utcnow
 from functools import wraps
 
 try:
-    from airflow.www_rbac.decorators import action_logging
-except ImportError:
     from airflow.api_fastapi.logging.decorators import action_logging
+except ImportError:
+    from airflow.www.decorators import action_logging
 
 
 T = TypeVar("T", bound=Callable)
