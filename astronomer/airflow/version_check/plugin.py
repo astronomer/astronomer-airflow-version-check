@@ -3,7 +3,7 @@ import logging
 
 from airflow.configuration import conf
 from airflow.plugins_manager import AirflowPlugin
-from airflow.utils.db import create_session
+from airflow.utils.session import create_session
 from sqlalchemy import inspect, Column, Boolean
 from sqlalchemy.exc import SQLAlchemyError
 from airflow.utils.sqlalchemy import UtcDateTime
@@ -12,7 +12,7 @@ from alembic.operations import Operations
 
 from .update_checks import UpdateAvailableBlueprint
 
-__version__ = "2.0.4"
+__version__ = "2.0.5"
 
 log = logging.getLogger(__name__)
 

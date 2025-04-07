@@ -2,7 +2,7 @@ from astronomer.airflow.version_check.models import AstronomerVersionCheck, Astr
 from astronomer.airflow.version_check.update_checks import CheckThread, UpdateAvailableBlueprint
 from unittest import mock
 import pytest
-from semver import Version as version
+from packaging.version import Version as version
 from datetime import timedelta
 from airflow.utils.timezone import utcnow
 

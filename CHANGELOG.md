@@ -1,5 +1,8 @@
 # Changelog
 
+## Version 2.0.5
+- Fix version check plugin compatible for the new version scheme (#78)
+
 ## Version 2.0.4
 - Update README.md to replace AC reference with runtime reference (#64)
 - Add warnings around current versions EOL date (#72)

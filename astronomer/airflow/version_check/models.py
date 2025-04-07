@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import sqlalchemy.ext
 from airflow.models import Base
-from airflow.utils.db import create_session
+from airflow.utils.session import create_session
 from airflow.utils.net import get_hostname
 from airflow.utils.timezone import utcnow
 from airflow.utils.sqlalchemy import UtcDateTime
