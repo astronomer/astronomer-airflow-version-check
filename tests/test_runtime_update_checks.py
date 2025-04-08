@@ -1,8 +1,11 @@
 from astronomer.airflow.version_check.models import AstronomerVersionCheck, AstronomerAvailableVersion
-from astronomer.airflow.version_check.update_checks import CheckThread, UpdateAvailableBlueprint
+from astronomer.airflow.version_check.update_checks import (
+    CheckThread,
+    UpdateAvailableBlueprint,
+    parse_new_version,
+)
 from unittest import mock
 import pytest
-from packaging import version
 from datetime import timedelta
 from airflow.utils.timezone import utcnow
 
@@ -12,9 +15,35 @@ def mock_test_env(monkeypatch):
     monkeypatch.setenv('AIRFLOW__ASTRONOMER__UPDATE_URL', "https://updates.astronomer.io/astronomer-runtime")
 
 
-@pytest.mark.parametrize("image_version, new_patch_version", [("3.0-1", "3.1-1")])
-def test_update_check_for_image_with_newer_patch(image_version, new_patch_version, app, session):
+@pytest.mark.parametrize("image_version, new_patch_version", [("3.0-1", "3.0-2")])
+@mock.patch.object(CheckThread, '_convert_runtime_versions')
+def test_update_check_for_image_with_newer_patch(
+    mock_convert_runtime_versions, image_version, new_patch_version, app, session
+):
     from airflow.utils.db import resetdb
+
+    mock_convert_runtime_versions.return_value = [
+        {
+            "version": "3.0-1",
+            "level": "",
+            "channel": "deprecated",
+            "url": "",
+            "description": "",
+            "release_date": "2021-07-20",
+            "end_of_support": "2022-02-28",
+            "yanked": False,
+        },
+        {
+            "version": "3.0-2",
+            "level": "",
+            "channel": "deprecated",
+            "url": "",
+            "description": "",
+            "release_date": "2021-07-20",
+            "end_of_support": "2022-02-28",
+            "yanked": False,
+        },
+    ]
 
     with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
         resetdb()
@@ -39,10 +68,44 @@ def test_update_check_for_image_with_newer_patch(image_version, new_patch_versio
         assert result['version'] == latest_patch.version
 
 
-def test_update_check_for_image_already_on_the_highest_patch(app, session):
+@mock.patch.object(CheckThread, '_convert_runtime_versions')
+def test_update_check_for_image_already_on_the_highest_patch(mock_convert_runtime_versions, app, session):
     from airflow.utils.db import resetdb
 
-    image_version = "3.0-5"  # highest patch of 3.0-1(using image that's no longer released)
+    mock_convert_runtime_versions.return_value = [
+        {
+            "version": "3.0-1",
+            "level": "",
+            "channel": "deprecated",
+            "url": "",
+            "description": "",
+            "release_date": "2021-07-20",
+            "end_of_support": "2022-02-28",
+            "yanked": False,
+        },
+        {
+            "version": "3.0-2",
+            "level": "",
+            "channel": "deprecated",
+            "url": "",
+            "description": "",
+            "release_date": "2021-07-20",
+            "end_of_support": "2022-02-28",
+            "yanked": False,
+        },
+        {
+            "version": "3.1-1",
+            "level": "",
+            "channel": "deprecated",
+            "url": "",
+            "description": "",
+            "release_date": "2021-07-20",
+            "end_of_support": "2022-02-28",
+            "yanked": False,
+        },
+    ]
+
+    image_version = "3.0-2"  # highest patch of 3.0-2(using image that's no longer released)
     with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
         resetdb()
         vc = AstronomerVersionCheck(singleton=True)
@@ -57,7 +120,7 @@ def test_update_check_for_image_already_on_the_highest_patch(app, session):
             AstronomerAvailableVersion.hidden_from_ui.is_(False)
         )
         # Get the latest release
-        highest_version = sorted(available_releases, key=lambda v: version.parse(v.version), reverse=True)
+        highest_version = sorted(available_releases, key=lambda v: parse_new_version(v.version), reverse=True)
         blueprint = UpdateAvailableBlueprint()
         result = blueprint.available_update()
         # UI displays the latest release
@@ -65,8 +128,24 @@ def test_update_check_for_image_already_on_the_highest_patch(app, session):
 
 
 @mock.patch('astronomer.airflow.version_check.update_checks.get_runtime_version')
-def test_update_check_dont_show_update_if_no_new_version_available(mock_runtime_version, app, session):
+@mock.patch.object(CheckThread, '_convert_runtime_versions')
+def test_update_check_dont_show_update_if_no_new_version_available(
+    mock_convert_runtime_versions, mock_runtime_version, app, session
+):
     from airflow.utils.db import resetdb
+
+    mock_convert_runtime_versions.return_value = [
+        {
+            "version": "3.0-1",
+            "level": "",
+            "channel": "deprecated",
+            "url": "",
+            "description": "",
+            "release_date": "2021-07-20",
+            "end_of_support": "2022-02-28",
+            "yanked": False,
+        }
+    ]
 
     with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": '3.0-1'}):
         resetdb()
@@ -74,11 +153,25 @@ def test_update_check_dont_show_update_if_no_new_version_available(mock_runtime_
         session.add(vc)
         session.commit()
         thread = CheckThread()
-        thread.runtime_version = '4.0-1'
-        available_releases = thread._get_update_json()['runtimeVersionsV3']
+        thread.runtime_version = '3.0-1'
+        available_releases = thread._get_update_json().get(
+            'runtimeVersionsV3',
+            {
+                "3.0-1": {
+                    "metadata": {
+                        "airflowVersion": "3.0.0",
+                        "channel": "deprecated",
+                        "releaseDate": "2021-07-20",
+                        "endOfSupport": "2022-02-28",
+                        "LTS": False,
+                    },
+                    "migrations": {"airflowDatabase": True},
+                }
+            },
+        )
 
         latest_version = list(available_releases)[-1]
-        public = str(version.parse(latest_version))
+        public = str(latest_version)
         # Update the mock version to the highest available
         mock_runtime_version.return_value = public
         thread.runtime_version = public
@@ -100,7 +193,21 @@ def test_alpha_beta_versions_are_not_recorded(app, session):
 
         thread = CheckThread()
         thread.ac_version = '4.0-1'
-        available_releases = thread._get_update_json()['runtimeVersions']
+        available_releases = thread._get_update_json().get(
+            'runtimeVersionsV3',
+            {
+                "3.0-1-nightly20250220": {
+                    "metadata": {
+                        "airflowVersion": "3.0.0",
+                        "channel": "alpha",
+                        "releaseDate": "2025-02-20",
+                        "endOfSupport": "2025-02-19",
+                        "LTS": False,
+                    },
+                    "migrations": {"airflowDatabase": True},
+                }
+            },
+        )
         alpha_beta = [
             k for k, v in available_releases.items() if v['metadata']['channel'] in ['alpha', 'beta']
         ]
@@ -133,7 +240,7 @@ def test_plugin_table_created(app, session):
 
 @pytest.mark.parametrize(
     "image_version, eol_days_offset, expected_level, expected_days_to_eol",
-    [("4.0-0", 10, 'warning', 10), ("4.0-0", -1, 'critical', -1)],
+    [("3.0-1", 10, 'warning', 10), ("3.0-1", -1, 'critical', -1)],
 )
 def test_days_to_eol_warning_and_critical(
     app, session, image_version, eol_days_offset, expected_level, expected_days_to_eol
@@ -168,7 +275,7 @@ def test_days_to_eol_warning_and_critical(
 
 @pytest.mark.parametrize(
     "image_version, yanked",
-    [("4.0-0", True), ("4.0-0", False)],
+    [("3.0-1", True), ("3.0-1", False)],
 )
 def test_yanked_version_excluded_from_updates(app, session, image_version, yanked):
     from airflow.utils.db import resetdb
@@ -203,7 +310,7 @@ def test_yanked_version_excluded_from_updates(app, session, image_version, yanke
 
 @pytest.mark.parametrize(
     "image_version, yanked",
-    [("4.0-0", True), ("4.0-0", False)],
+    [("3.0-1", True), ("3.0-1", False)],
 )
 def test_available_yanked(app, session, image_version, yanked):
     from airflow.utils.db import resetdb

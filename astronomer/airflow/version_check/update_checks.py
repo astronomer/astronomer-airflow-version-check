@@ -320,14 +320,14 @@ class CheckThread(threading.Thread, LoggingMixin):
     def _make_fake_runtime_response(self):
         v = parse_new_version(self.runtime_version)
 
-        new_version = f'{v.major}.{v.minor}.{v.patch}'
+        new_version = f'{v.major}.{v.minor}-{v.patch}'
 
         return {
             'features': {},
-            'runtimeVersions': {
+            'runtimeVersionsV3': {
                 new_version: {
                     "metadata": {
-                        "airflowVersion": "2.1.1",
+                        "airflowVersion": "3.0.0",
                         "channel": "deprecated",
                         "releaseDate": "2021-07-20",
                         "endOfSupport": "2022-02-28",
@@ -458,7 +458,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
             return None
 
         session = get_state(app=current_app).db.session
-        runtime_version = parse_new_version(get_runtime_version())
+        runtime_version = get_runtime_version()
         current_version = (
             session.query(AstronomerAvailableVersion)
             .filter(AstronomerAvailableVersion.version == str(runtime_version))
@@ -471,7 +471,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         from .models import AstronomerAvailableVersion
 
         session = get_state(app=current_app).db.session
-        runtime_version = parse_new_version(get_runtime_version())
+        runtime_version = get_runtime_version()
         current_version = (
             session.query(AstronomerAvailableVersion)
             .filter(
