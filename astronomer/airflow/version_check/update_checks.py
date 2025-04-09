@@ -9,6 +9,7 @@ import sys
 import threading
 import time
 from datetime import timedelta
+import re
 
 import distro
 import lazy_object_proxy
@@ -24,13 +25,13 @@ from flask_sqlalchemy import get_state
 from semver import Version as version
 
 from airflow.configuration import conf
-from airflow.utils.db import create_session
+from airflow.utils.session import create_session
 from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow.utils.timezone import utcnow
 from functools import wraps
 
 try:
-    from airflow.www_rbac.decorators import action_logging
+    from airflow.api_fastapi.logging.decorators import action_logging
 except ImportError:
     from airflow.www.decorators import action_logging
 
@@ -47,7 +48,7 @@ def has_access_(permissions: Sequence[tuple[str, str]]) -> Callable[[T], T]:
     resource_type: str = permissions[0][1]
 
     from airflow.utils.net import get_hostname
-    from airflow.www.extensions.init_auth_manager import get_auth_manager
+    from airflow.api_fastapi.app import get_auth_manager
 
     def decorated(*, is_authorized: bool, func: Callable, args, kwargs):
         """
@@ -87,6 +88,16 @@ def has_access_(permissions: Sequence[tuple[str, str]]) -> Callable[[T], T]:
         return cast(T, wrapper)
 
     return has_access_decorator
+
+
+def parse_new_version(version_str):
+    """
+    Parse versions like '3.0-1-nightly20241216'.
+    """
+    # Extract major, minor, patch and metadata from version
+    match = re.match(r"(\d+)\.(\d+)(?:-(\d+))?", version_str)
+    major, minor, patch = match.groups()
+    return version.parse(f"{major}.{minor}.{patch}")
 
 
 # This code is introduced to maintain backward compatibility, since with airflow > 2.8
@@ -158,9 +169,9 @@ class CheckThread(threading.Thread, LoggingMixin):
                 AstronomerAvailableVersion.hidden_from_ui.is_(False)
             )
 
-            runtime_version = version.parse(get_runtime_version())
+            runtime_version = parse_new_version(get_runtime_version())
             for rel in available_releases:
-                if runtime_version >= version.parse(rel.version):
+                if runtime_version >= parse_new_version(rel.version):
                     rel.hidden_from_ui = True
 
     def check_for_update(self):
@@ -213,9 +224,9 @@ class CheckThread(threading.Thread, LoggingMixin):
     def _process_update_json(self, update_document):
         from .models import AstronomerAvailableVersion
 
-        versions = self._convert_runtime_versions(update_document.get("runtimeVersions", {}))
+        versions = self._convert_runtime_versions(update_document.get("runtimeVersionsV3", {}))
 
-        current_version = version.parse(self.runtime_version)
+        current_version = parse_new_version(self.runtime_version)
 
         self.log.debug(
             "Raw versions in update document: %r",
@@ -223,54 +234,45 @@ class CheckThread(threading.Thread, LoggingMixin):
         )
 
         def parse_version(rel):
-            rel['parsed_version'] = version.parse(rel['version'])
+            rel['parsed_version'] = parse_new_version(rel['version'])
             return rel
 
         releases = map(parse_version, versions)
 
         for release in sorted(releases, key=lambda rel: rel['parsed_version'], reverse=True):
-            ver = version.parse(release['version'])
+            parsed_ver = release['parsed_version']
             if release['channel'] in ['alpha', 'beta']:  # ignore alpha & beta releases
                 continue
-            if ver < current_version:
+            if parsed_ver < current_version:
                 self.log.debug(
                     "Got to a release (%s) that is older than the running version (%s) -- stopping looking for more",
-                    ver,
+                    parsed_ver,
                     self.runtime_version,
                 )
                 break
 
-            if 'release_date' in release:
-                release_date = pendulum.parse(release['release_date'], timezone='UTC')
-            else:
-                release_date = utcnow()
+            release_date = (
+                pendulum.parse(release['release_date'], timezone='UTC')
+                if 'release_date' in release
+                else pendulum.now('UTC')
+            )
 
             end_of_support = (
                 pendulum.parse(release.get('end_of_support'), timezone='UTC')
-                if release.get('end_of_support') is not None
+                if release.get('end_of_support')
                 else None
             )
-            if ver == current_version:
-                yield AstronomerAvailableVersion(
-                    version=release['version'],
-                    level=release['level'],
-                    date_released=release_date,
-                    url=release.get('url'),
-                    description=release.get('description'),
-                    end_of_support=end_of_support,
-                    hidden_from_ui=True,
-                    yanked=release.get('yanked', False),
-                )
-            else:
-                yield AstronomerAvailableVersion(
-                    version=release['version'],
-                    level=release['level'],
-                    date_released=release_date,
-                    url=release.get('url'),
-                    description=release.get('description'),
-                    end_of_support=end_of_support,
-                    yanked=release.get('yanked', False),
-                )
+
+            yield AstronomerAvailableVersion(
+                version=release['version'],
+                level=release['level'],
+                date_released=release_date,
+                url=release.get('url'),
+                description=release.get('description'),
+                end_of_support=end_of_support,
+                hidden_from_ui=True if parsed_ver == current_version else False,
+                yanked=release.get('yanked', False),
+            )
 
     def _convert_runtime_versions(self, runtime_versions):
         """
@@ -316,16 +318,16 @@ class CheckThread(threading.Thread, LoggingMixin):
         return versions
 
     def _make_fake_runtime_response(self):
-        v = version.parse(self.runtime_version)
+        v = parse_new_version(self.runtime_version)
 
-        new_version = f'{v.major}.{v.minor}.{v.patch}'
+        new_version = f'{v.major}.{v.minor}-{v.patch}'
 
         return {
             'features': {},
-            'runtimeVersions': {
+            'runtimeVersionsV3': {
                 new_version: {
                     "metadata": {
-                        "airflowVersion": "2.1.1",
+                        "airflowVersion": "3.0.0",
                         "channel": "deprecated",
                         "releaseDate": "2021-07-20",
                         "endOfSupport": "2022-02-28",
@@ -412,16 +414,16 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
             or_(AstronomerAvailableVersion.yanked.is_(False), AstronomerAvailableVersion.yanked.is_(None)),
         )
 
-        runtime_version = version.parse(get_runtime_version())
+        runtime_version = parse_new_version(get_runtime_version())
         base_version = runtime_version.major
 
-        sorted_releases = sorted(available_releases, key=lambda v: version.parse(v.version), reverse=True)
+        sorted_releases = sorted(available_releases, key=lambda v: parse_new_version(v.version), reverse=True)
         for rel in sorted_releases:
             # Only notify about the latest release if the user is in the highest patch level.
             # On runtime:
             # if the user is on version 5.0.6 and 5.0.8, 6.0.0 are available,
             # notify the user about 5.0.8 and don't notify user about 6.0.0.
-            rel_parsed_version = version.parse(rel.version)
+            rel_parsed_version = parse_new_version(rel.version)
 
             rel_parsed_base_version = rel_parsed_version.major
             if rel_parsed_version > runtime_version and rel_parsed_base_version == base_version:
@@ -456,7 +458,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
             return None
 
         session = get_state(app=current_app).db.session
-        runtime_version = version.parse(get_runtime_version())
+        runtime_version = get_runtime_version()
         current_version = (
             session.query(AstronomerAvailableVersion)
             .filter(AstronomerAvailableVersion.version == str(runtime_version))
@@ -469,7 +471,7 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         from .models import AstronomerAvailableVersion
 
         session = get_state(app=current_app).db.session
-        runtime_version = version.parse(get_runtime_version())
+        runtime_version = get_runtime_version()
         current_version = (
             session.query(AstronomerAvailableVersion)
             .filter(

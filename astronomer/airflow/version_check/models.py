@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import sqlalchemy.ext
 from airflow.models import Base
-from airflow.utils.db import create_session
+from airflow.utils.session import create_session
 from airflow.utils.net import get_hostname
 from airflow.utils.timezone import utcnow
 from airflow.utils.sqlalchemy import UtcDateTime
@@ -25,7 +25,7 @@ class AstronomerVersionCheck(Base):
     __tablename__ = "astro_version_check"
     singleton = Column(Boolean, default=True, nullable=False, primary_key=True)
 
-    # For infomration only
+    # For information only
     last_checked = Column(UtcDateTime(timezone=True))
     last_checked_by = Column(Text)
 

@@ -3,7 +3,7 @@ import logging
 
 from airflow.configuration import conf
 from airflow.plugins_manager import AirflowPlugin
-from airflow.utils.db import create_session
+from airflow.utils.session import create_session
 from sqlalchemy import inspect, Column, Boolean
 from sqlalchemy.exc import SQLAlchemyError
 from airflow.utils.sqlalchemy import UtcDateTime
