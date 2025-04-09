@@ -105,7 +105,7 @@ def test_update_check_for_image_already_on_the_highest_patch(mock_convert_runtim
         },
     ]
 
-    image_version = "3.0-2"  # highest patch of 3.0-2(using image that's no longer released)
+    image_version = "3.0-2"
     with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
         resetdb()
         vc = AstronomerVersionCheck(singleton=True)
