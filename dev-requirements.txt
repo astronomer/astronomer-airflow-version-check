@@ -1,6 +1,6 @@
 # Requirements that can't be expressed in setup.py
 -c https://raw.githubusercontent.com/apache/airflow/constraints-2.7.1/constraints-3.9.txt
-wheel
+wheel==0.45.1
 apache-airflow==2.7.1
 flake8==5.0.4
 
