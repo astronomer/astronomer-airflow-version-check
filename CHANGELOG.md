@@ -1,6 +1,6 @@
 # Changelog
 
-## Version 3.0.0rc1
+## Version 3.0.0-rc1
 - Use new versioning scheme for checking of runtime images
 
 ## Version 2.0.4
