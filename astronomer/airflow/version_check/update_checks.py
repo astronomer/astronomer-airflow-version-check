@@ -122,7 +122,7 @@ class CheckThread(threading.Thread, LoggingMixin):
         self.check_interval_secs = conf.getint("astronomer", "update_check_interval", fallback=24 * 60 * 60)
         self.check_interval = timedelta(seconds=self.check_interval_secs)
         self.request_timeout = conf.getint("astronomer", "update_check_timeout", fallback=60)
-        self.base_url = conf.get("webserver", "base_url")
+        self.base_url = conf.get("api", "base_url")
         self.runtime_version = get_runtime_version()
         self.update_url = conf.get(
             "astronomer", "update_url", fallback="https://updates.astronomer.io/astronomer-runtime"
