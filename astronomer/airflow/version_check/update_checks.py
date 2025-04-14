@@ -122,7 +122,7 @@ class CheckThread(threading.Thread, LoggingMixin):
         self.check_interval_secs = conf.getint("astronomer", "update_check_interval", fallback=24 * 60 * 60)
         self.check_interval = timedelta(seconds=self.check_interval_secs)
         self.request_timeout = conf.getint("astronomer", "update_check_timeout", fallback=60)
-        self.base_url = conf.get("webserver", "base_url")
+        self.base_url = conf.get("api", "base_url")
         self.runtime_version = get_runtime_version()
         self.update_url = conf.get(
             "astronomer", "update_url", fallback="https://updates.astronomer.io/astronomer-runtime"
@@ -225,6 +225,63 @@ class CheckThread(threading.Thread, LoggingMixin):
         from .models import AstronomerAvailableVersion
 
         versions = self._convert_runtime_versions(update_document.get("runtimeVersionsV3", {}))
+        versions = self._convert_runtime_versions(
+            update_document.get(
+                "runtimeVersionsV3",
+                {
+                    "3.0-0": {
+                        "metadata": {
+                            "airflowVersion": "3.0.0",
+                            "channel": "deprecated",
+                            "releaseDate": "2025-04-10",
+                            "endOfSupport": "2025-07-19",
+                            "LTS": False,
+                        },
+                        "migrations": {"airflowDatabase": True},
+                    },
+                    "3.0-1": {
+                        "metadata": {
+                            "airflowVersion": "3.0.0",
+                            "channel": "deprecated",
+                            "releaseDate": "2025-04-10",
+                            "endOfSupport": "2025-07-19",
+                            "LTS": False,
+                        },
+                        "migrations": {"airflowDatabase": False},
+                    },
+                    "3.0-2": {
+                        "metadata": {
+                            "airflowVersion": "3.0.0",
+                            "channel": "deprecated",
+                            "releaseDate": "2025-04-10",
+                            "endOfSupport": "2025-07-19",
+                            "LTS": False,
+                        },
+                        "migrations": {"airflowDatabase": False},
+                    },
+                    "3.0-3": {
+                        "metadata": {
+                            "airflowVersion": "3.0.0",
+                            "channel": "deprecated",
+                            "releaseDate": "2025-04-10",
+                            "endOfSupport": "2025-07-19",
+                            "LTS": False,
+                        },
+                        "migrations": {"airflowDatabase": False},
+                    },
+                    "3.0-4": {
+                        "metadata": {
+                            "airflowVersion": "3.0.0",
+                            "channel": "deprecated",
+                            "releaseDate": "2025-04-10",
+                            "endOfSupport": "2025-07-19",
+                            "LTS": False,
+                        },
+                        "migrations": {"airflowDatabase": False},
+                    },
+                },
+            )
+        )
 
         current_version = parse_new_version(self.runtime_version)
 
@@ -408,11 +465,13 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         """Check if there is a new version of Astronomer Runtime available."""
         from .models import AstronomerAvailableVersion
 
-        session = get_state(app=current_app).db.session
-        available_releases = session.query(AstronomerAvailableVersion).filter(
-            AstronomerAvailableVersion.hidden_from_ui.is_(False),
-            or_(AstronomerAvailableVersion.yanked.is_(False), AstronomerAvailableVersion.yanked.is_(None)),
-        )
+        with create_session() as session:
+            available_releases = session.query(AstronomerAvailableVersion).filter(
+                AstronomerAvailableVersion.hidden_from_ui.is_(False),
+                or_(
+                    AstronomerAvailableVersion.yanked.is_(False), AstronomerAvailableVersion.yanked.is_(None)
+                ),
+            )
 
         runtime_version = parse_new_version(get_runtime_version())
         base_version = runtime_version.major
@@ -457,37 +516,37 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         if eol_warning_opt_out:
             return None
 
-        session = get_state(app=current_app).db.session
-        runtime_version = get_runtime_version()
-        current_version = (
-            session.query(AstronomerAvailableVersion)
-            .filter(AstronomerAvailableVersion.version == str(runtime_version))
-            .one_or_none()
-        )
-        return self.get_eol_notice(current_version)
+        with create_session() as session:
+            runtime_version = get_runtime_version()
+            current_version = (
+                session.query(AstronomerAvailableVersion)
+                .filter(AstronomerAvailableVersion.version == str(runtime_version))
+                .one_or_none()
+            )
+            return self.get_eol_notice(current_version)
 
     def available_yanked(self) -> dict[str, Any] | None:
         """Check if the current version of Astronomer Runtime is yanked."""
         from .models import AstronomerAvailableVersion
 
-        session = get_state(app=current_app).db.session
-        runtime_version = get_runtime_version()
-        current_version = (
-            session.query(AstronomerAvailableVersion)
-            .filter(
-                AstronomerAvailableVersion.version == str(runtime_version),
-                AstronomerAvailableVersion.yanked.is_(True),
-            )
-            .one_or_none()
-        )
-
-        if current_version and current_version.yanked:
-            return (
-                f"Warning: This version of Astronomer Runtime, {runtime_version}, has been yanked. "
-                "We strongly recommend upgrading to a more recent supported version."
+        with create_session() as session:
+            runtime_version = get_runtime_version()
+            current_version = (
+                session.query(AstronomerAvailableVersion)
+                .filter(
+                    AstronomerAvailableVersion.version == str(runtime_version),
+                    AstronomerAvailableVersion.yanked.is_(True),
+                )
+                .one_or_none()
             )
 
-        return None
+            if current_version and current_version.yanked:
+                return (
+                    f"Warning: This version of Astronomer Runtime, {runtime_version}, has been yanked. "
+                    "We strongly recommend upgrading to a more recent supported version."
+                )
+
+            return None
 
     def new_template_vars(self):
         return {
