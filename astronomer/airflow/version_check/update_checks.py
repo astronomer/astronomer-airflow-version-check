@@ -12,13 +12,12 @@ from datetime import timedelta
 import re
 
 import distro
-import lazy_object_proxy
 import pendulum
 import requests
 import sqlalchemy.exc
 from typing import Callable, TypeVar, cast, Sequence
 from requests.exceptions import SSLError, HTTPError
-from sqlalchemy import inspect, or_
+from sqlalchemy import or_
 from flask import Blueprint, flash, redirect, render_template, request, g
 from flask_appbuilder.api import BaseApi, expose
 from semver import Version as version
