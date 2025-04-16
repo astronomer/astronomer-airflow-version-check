@@ -12,16 +12,14 @@ from datetime import timedelta
 import re
 
 import distro
-import lazy_object_proxy
 import pendulum
 import requests
 import sqlalchemy.exc
 from typing import Callable, TypeVar, cast, Sequence
 from requests.exceptions import SSLError, HTTPError
-from sqlalchemy import inspect, or_
-from flask import Blueprint, current_app, flash, redirect, render_template, request, g
+from sqlalchemy import or_
+from flask import Blueprint, flash, redirect, render_template, request, g
 from flask_appbuilder.api import BaseApi, expose
-from flask_sqlalchemy import get_state
 from semver import Version as version
 
 from airflow.configuration import conf
@@ -122,7 +120,7 @@ class CheckThread(threading.Thread, LoggingMixin):
         self.check_interval_secs = conf.getint("astronomer", "update_check_interval", fallback=24 * 60 * 60)
         self.check_interval = timedelta(seconds=self.check_interval_secs)
         self.request_timeout = conf.getint("astronomer", "update_check_timeout", fallback=60)
-        self.base_url = conf.get("webserver", "base_url")
+        self.base_url = conf.get("api", "base_url", fallback="/")
         self.runtime_version = get_runtime_version()
         self.update_url = conf.get(
             "astronomer", "update_url", fallback="https://updates.astronomer.io/astronomer-runtime"
@@ -358,8 +356,6 @@ class CheckThread(threading.Thread, LoggingMixin):
 
 class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
 
-    airflow_base_template = None
-
     def __init__(self):
         super().__init__(
             "UpdateAvailableView",
@@ -408,11 +404,13 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         """Check if there is a new version of Astronomer Runtime available."""
         from .models import AstronomerAvailableVersion
 
-        session = get_state(app=current_app).db.session
-        available_releases = session.query(AstronomerAvailableVersion).filter(
-            AstronomerAvailableVersion.hidden_from_ui.is_(False),
-            or_(AstronomerAvailableVersion.yanked.is_(False), AstronomerAvailableVersion.yanked.is_(None)),
-        )
+        with create_session() as session:
+            available_releases = session.query(AstronomerAvailableVersion).filter(
+                AstronomerAvailableVersion.hidden_from_ui.is_(False),
+                or_(
+                    AstronomerAvailableVersion.yanked.is_(False), AstronomerAvailableVersion.yanked.is_(None)
+                ),
+            )
 
         runtime_version = parse_new_version(get_runtime_version())
         base_version = runtime_version.major
@@ -457,46 +455,37 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
         if eol_warning_opt_out:
             return None
 
-        session = get_state(app=current_app).db.session
-        runtime_version = get_runtime_version()
-        current_version = (
-            session.query(AstronomerAvailableVersion)
-            .filter(AstronomerAvailableVersion.version == str(runtime_version))
-            .one_or_none()
-        )
-        return self.get_eol_notice(current_version)
+        with create_session() as session:
+            runtime_version = get_runtime_version()
+            current_version = (
+                session.query(AstronomerAvailableVersion)
+                .filter(AstronomerAvailableVersion.version == str(runtime_version))
+                .one_or_none()
+            )
+            return self.get_eol_notice(current_version)
 
     def available_yanked(self) -> dict[str, Any] | None:
         """Check if the current version of Astronomer Runtime is yanked."""
         from .models import AstronomerAvailableVersion
 
-        session = get_state(app=current_app).db.session
-        runtime_version = get_runtime_version()
-        current_version = (
-            session.query(AstronomerAvailableVersion)
-            .filter(
-                AstronomerAvailableVersion.version == str(runtime_version),
-                AstronomerAvailableVersion.yanked.is_(True),
-            )
-            .one_or_none()
-        )
-
-        if current_version and current_version.yanked:
-            return (
-                f"Warning: This version of Astronomer Runtime, {runtime_version}, has been yanked. "
-                "We strongly recommend upgrading to a more recent supported version."
+        with create_session() as session:
+            runtime_version = get_runtime_version()
+            current_version = (
+                session.query(AstronomerAvailableVersion)
+                .filter(
+                    AstronomerAvailableVersion.version == str(runtime_version),
+                    AstronomerAvailableVersion.yanked.is_(True),
+                )
+                .one_or_none()
             )
 
-        return None
+            if current_version and current_version.yanked:
+                return (
+                    f"Warning: This version of Astronomer Runtime, {runtime_version}, has been yanked. "
+                    "We strongly recommend upgrading to a more recent supported version."
+                )
 
-    def new_template_vars(self):
-        return {
-            # Fetch it once per template render, not each time it's accessed
-            'cea_update_available': lazy_object_proxy.Proxy(self.available_update),
-            'cea_eol_notice': lazy_object_proxy.Proxy(self.available_eol),
-            'cea_yanked_warning': lazy_object_proxy.Proxy(self.available_yanked),
-            'airflow_base_template': self.airflow_base_template,
-        }
+            return None
 
     class UpdateAvailable(BaseApi):
         resource_name = "update_available"
@@ -544,42 +533,6 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
                 ).update({AstronomerAvailableVersion.hidden_from_ui: True}, synchronize_session=False)
 
             return self.response(200)
-
-    def register(self, app, *args, **kwargs):
-        """
-        Re-configure Flask to use our customized layout (that includes the call-home JS)
-        Called by Flask when registering the blueprint to the app
-        """
-        from .models import AstronomerVersionCheck
-
-        if not hasattr(app, 'appbuilder'):
-            return
-
-        with create_session() as session:
-            engine = session.get_bind(mapper=None, clause=None)
-            inspector = inspect(engine)
-            if not getattr(inspector, 'has_table', None):
-                inspector = engine
-            if not inspector.has_table(AstronomerVersionCheck.__tablename__):
-                self.log.warning(
-                    "AstronomerVersionCheck tables are missing (plugin not installed at upgradedb "
-                    "time?). No update checks will be performed"
-                )
-                return
-
-        self.airflow_base_template = app.appbuilder.base_template
-
-        if app.appbuilder.base_template in ["airflow/master.html", "airflow/main.html", "runtime_base.html"]:
-            app.appbuilder.base_template = "astro-baselayout.html"
-        else:
-            self.log.warning(
-                "Not replacing appbuilder.base_template, it didn't have the expected value. Update"
-                " available messages will not be visible in UI"
-            )
-        app.appbuilder.add_view_no_menu(self.UpdateAvailable)
-        self.app_context_processor(self.new_template_vars)
-
-        super().register(app, *args, **kwargs)
 
 
 def get_runtime_version():
