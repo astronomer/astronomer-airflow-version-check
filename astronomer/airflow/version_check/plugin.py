@@ -12,7 +12,7 @@ from alembic.operations import Operations
 
 from .update_checks import UpdateAvailableBlueprint
 
-__version__ = "3.0.0rc1"
+__version__ = "3.0.0rc2"
 
 log = logging.getLogger(__name__)
 
