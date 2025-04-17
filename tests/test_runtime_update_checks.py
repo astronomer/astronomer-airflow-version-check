@@ -1,7 +1,7 @@
 from astronomer.airflow.version_check.models import AstronomerVersionCheck, AstronomerAvailableVersion
 from astronomer.airflow.version_check.update_checks import (
     CheckThread,
-    UpdateAvailableBlueprint,
+    UpdateAvailableHelper,
     parse_new_version,
 )
 from unittest import mock
@@ -62,8 +62,8 @@ def test_update_check_for_image_with_newer_patch(
             .order_by(AstronomerAvailableVersion.date_released.desc())
             .first()
         )
-        blueprint = UpdateAvailableBlueprint()
-        result = blueprint.available_update()
+        helper = UpdateAvailableHelper()
+        result = helper.available_update()
         # UI displays the latest patch release
         assert result['version'] == latest_patch.version
 
@@ -121,8 +121,8 @@ def test_update_check_for_image_already_on_the_highest_patch(mock_convert_runtim
         )
         # Get the latest release
         highest_version = sorted(available_releases, key=lambda v: parse_new_version(v.version), reverse=True)
-        blueprint = UpdateAvailableBlueprint()
-        result = blueprint.available_update()
+        helper = UpdateAvailableHelper()
+        result = helper.available_update()
         # UI displays the latest release
         assert result['version'] == highest_version[0].version
 
@@ -176,8 +176,8 @@ def test_update_check_dont_show_update_if_no_new_version_available(
         mock_runtime_version.return_value = public
         thread.runtime_version = public
         thread.check_for_update()
-        blueprint = UpdateAvailableBlueprint()
-        result = blueprint.available_update()
+        helper = UpdateAvailableHelper()
+        result = helper.available_update()
         # Nothing would be displayed if there is no new version available
         assert result is None
 
@@ -266,8 +266,8 @@ def test_days_to_eol_warning_and_critical(
         session.add(av)
         session.commit()
 
-        blueprint = UpdateAvailableBlueprint()
-        result = blueprint.available_eol()
+        helper = UpdateAvailableHelper()
+        result = helper.available_eol()
 
         assert abs(result['days_to_eol'] - expected_days_to_eol) <= 1
         assert result['level'] == expected_level
@@ -298,8 +298,8 @@ def test_yanked_version_excluded_from_updates(app, session, image_version, yanke
         session.add(av)
         session.commit()
 
-        blueprint = UpdateAvailableBlueprint()
-        result = blueprint.available_update()
+        helper = UpdateAvailableHelper()
+        result = helper.available_update()
 
         if yanked:
             assert result is None
@@ -333,8 +333,8 @@ def test_available_yanked(app, session, image_version, yanked):
         session.add(av)
         session.commit()
 
-        blueprint = UpdateAvailableBlueprint()
-        result = blueprint.available_yanked()
+        helper = UpdateAvailableHelper()
+        result = helper.available_yanked()
 
         if yanked:
             assert result is not None

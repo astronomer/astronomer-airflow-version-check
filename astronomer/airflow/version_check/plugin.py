@@ -10,8 +10,6 @@ from airflow.utils.sqlalchemy import UtcDateTime
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 
-from .update_checks import UpdateAvailableBlueprint
-
 __version__ = "2.0.4"
 
 log = logging.getLogger(__name__)
@@ -24,8 +22,6 @@ eol_warning_threshold_days = conf.getint("astronomer", "eol_warning_threshold_da
 
 class AstronomerVersionCheckPlugin(AirflowPlugin):
     name = "astronomer_version_check"
-
-    flask_blueprints = [UpdateAvailableBlueprint()] if update_check_interval != 0 else []
 
     @staticmethod
     def add_before_call(mod_or_cls, target, pre_fn) -> None:
