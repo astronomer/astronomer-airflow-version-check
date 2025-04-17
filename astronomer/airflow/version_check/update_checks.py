@@ -18,8 +18,7 @@ import sqlalchemy.exc
 from typing import Callable, TypeVar, cast, Sequence
 from requests.exceptions import SSLError, HTTPError
 from sqlalchemy import or_
-from flask import Blueprint, flash, redirect, render_template, request, g
-from flask_appbuilder.api import BaseApi, expose
+from flask import flash, redirect, render_template, request, g
 from semver import Version as version
 
 from airflow.configuration import conf
@@ -27,11 +26,6 @@ from airflow.utils.session import create_session
 from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow.utils.timezone import utcnow
 from functools import wraps
-
-try:
-    from airflow.api_fastapi.logging.decorators import action_logging
-except ImportError:
-    from airflow.www.decorators import action_logging
 
 
 T = TypeVar("T", bound=Callable)
@@ -354,16 +348,8 @@ class CheckThread(threading.Thread, LoggingMixin):
             pass
 
 
-class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
-
+class UpdateAvailableHelper(LoggingMixin):
     def __init__(self):
-        super().__init__(
-            "UpdateAvailableView",
-            __name__,
-            url_prefix='/astro',
-            static_folder='static',
-            template_folder=os.path.join(os.path.dirname(__file__), "templates"),
-        )
         from .plugin import dismissal_period_days, eol_warning_threshold_days
 
         self.eol_warning_threshold_days = eol_warning_threshold_days
@@ -486,53 +472,6 @@ class UpdateAvailableBlueprint(Blueprint, LoggingMixin):
                 )
 
             return None
-
-    class UpdateAvailable(BaseApi):
-        resource_name = "update_available"
-        csrf_exempt = False
-        base_permissions = ['can_dismiss']
-        # A bug in Flask-AppBuilder mandates us to have a value for method_permission_name
-        # before is_item_public filter can be used.
-        method_permission_name = {
-            "dismiss": "dismiss",
-            "dismiss_eol": "dismiss_eol",
-        }
-        allow_browser_login = True
-
-        @expose("<path:version>/dismiss_eol", methods=["POST"])
-        @has_access([("can_dismiss", 'UpdateAvailable')])
-        @action_logging
-        def dismiss_eol(self, version):
-            from .plugin import dismissal_period_days
-            from .models import AstronomerAvailableVersion
-
-            dismiss_until = utcnow() + timedelta(days=dismissal_period_days)
-
-            with create_session() as session:
-                session.query(AstronomerAvailableVersion).filter(
-                    AstronomerAvailableVersion.version == version,
-                ).update(
-                    {AstronomerAvailableVersion.eos_dismissed_until: dismiss_until}, synchronize_session=False
-                )
-
-            return self.response(200)
-
-        @expose("<path:version>/dismiss", methods=["POST"])
-        @has_access(
-            [
-                ("can_dismiss", 'UpdateAvailable'),
-            ]
-        )
-        @action_logging
-        def dismiss(self, version):
-            from .models import AstronomerAvailableVersion
-
-            with create_session() as session:
-                session.query(AstronomerAvailableVersion).filter(
-                    AstronomerAvailableVersion.version == version,
-                ).update({AstronomerAvailableVersion.hidden_from_ui: True}, synchronize_session=False)
-
-            return self.response(200)
 
 
 def get_runtime_version():
