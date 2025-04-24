@@ -10,7 +10,7 @@ from airflow.utils.sqlalchemy import UtcDateTime
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 
-__version__ = "2.0.4"
+__version__ = "3.0.0"
 
 log = logging.getLogger(__name__)
 

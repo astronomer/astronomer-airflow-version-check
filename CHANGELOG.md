@@ -1,5 +1,10 @@
 # Changelog
 
+## Version 3.0.0
+- Use new versioning scheme for checking of runtime images (#78)
+- Move Version Check UI to runtime Middleware (#81)
+- Remove FAB dependency (#82)
+
 ## Version 2.0.4
 - Update README.md to replace AC reference with runtime reference (#64)
 - Add warnings around current versions EOL date (#72)
