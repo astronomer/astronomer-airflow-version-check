@@ -1,3 +1,5 @@
+import os
+
 from flask.testing import FlaskClient
 import pytest
 
@@ -32,6 +34,10 @@ def client(app, user, request):
 def app():
     from airflow.utils.db import initdb
     from airflow.www.app import create_app
+
+    os.environ['AIRFLOW__DATABASE__EXTERNAL_DB_MANAGERS'] = (
+        'astronomer.airflow.version_check.models.manager.VersionCheckDBManager'
+    )
 
     initdb()
     app = create_app(testing=True)

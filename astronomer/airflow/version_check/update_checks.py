@@ -154,7 +154,7 @@ class CheckThread(threading.Thread, LoggingMixin):
     @staticmethod
     def hide_old_versions():
         """Hide Old Versions from displaying in the UI"""
-        from .models import AstronomerAvailableVersion
+        from astronomer.airflow.version_check.models.db import AstronomerAvailableVersion
 
         with create_session() as session:
             available_releases = session.query(AstronomerAvailableVersion).filter(
@@ -171,7 +171,7 @@ class CheckThread(threading.Thread, LoggingMixin):
         :return: The time to sleep for before the next check should be performed
         :rtype: float
         """
-        from .models import AstronomerVersionCheck
+        from astronomer.airflow.version_check.models.db import AstronomerVersionCheck
 
         with create_session() as session:
             try:
@@ -214,7 +214,7 @@ class CheckThread(threading.Thread, LoggingMixin):
             return result, self.check_interval.total_seconds()
 
     def _process_update_json(self, update_document):
-        from .models import AstronomerAvailableVersion
+        from astronomer.airflow.version_check.models.db import AstronomerAvailableVersion
 
         versions = self._convert_runtime_versions(update_document.get("runtimeVersionsV3", {}))
 
@@ -388,7 +388,7 @@ class UpdateAvailableHelper(LoggingMixin):
 
     def available_update(self):
         """Check if there is a new version of Astronomer Runtime available."""
-        from .models import AstronomerAvailableVersion
+        from astronomer.airflow.version_check.models.db import AstronomerAvailableVersion
 
         with create_session() as session:
             available_releases = session.query(AstronomerAvailableVersion).filter(
@@ -436,7 +436,7 @@ class UpdateAvailableHelper(LoggingMixin):
     def available_eol(self) -> dict[str, Any] | None:
         """Check if there is an EOL notice for the current version of Astronomer Runtime."""
         from .plugin import eol_warning_opt_out
-        from .models import AstronomerAvailableVersion
+        from astronomer.airflow.version_check.models.db import AstronomerAvailableVersion
 
         if eol_warning_opt_out:
             return None
@@ -452,7 +452,7 @@ class UpdateAvailableHelper(LoggingMixin):
 
     def available_yanked(self) -> dict[str, Any] | None:
         """Check if the current version of Astronomer Runtime is yanked."""
-        from .models import AstronomerAvailableVersion
+        from astronomer.airflow.version_check.models.db import AstronomerAvailableVersion
 
         with create_session() as session:
             runtime_version = get_runtime_version()

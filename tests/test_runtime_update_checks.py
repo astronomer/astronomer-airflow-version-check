@@ -1,4 +1,4 @@
-from astronomer.airflow.version_check.models import AstronomerVersionCheck, AstronomerAvailableVersion
+from astronomer.airflow.version_check.models.db import AstronomerVersionCheck, AstronomerAvailableVersion
 from astronomer.airflow.version_check.update_checks import (
     CheckThread,
     UpdateAvailableHelper,
