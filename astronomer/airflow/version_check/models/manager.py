@@ -8,7 +8,7 @@ from astronomer.airflow.version_check.models.db import metadata
 from airflow.utils.db import _offline_migration, print_happy_cat
 from airflow.utils.db_manager import BaseDBManager
 
-PACKAGE_DIR = Path(__file__).parents[2]
+PACKAGE_DIR = Path(__file__).parents[1]
 
 _REVISION_HEADS_MAP: dict[str, str] = {
     "3.1.0": "b5ad49d1f9b4",
@@ -71,7 +71,9 @@ class VersionCheckDBManager(BaseDBManager):
         # alembic adds significant import time, so we import it lazily
         from alembic import command
 
-        self.log.info("Attempting downgrade of FAB migration to revision %s", to_revision)
+        self.log.info(
+            "Attempting downgrade of Astronomer Version Check plugin migration to revision %s", to_revision
+        )
         config = self.get_alembic_config()
 
         if show_sql_only:
@@ -84,7 +86,7 @@ class VersionCheckDBManager(BaseDBManager):
             revision_range = f"{from_revision}:{to_revision}"
             _offline_migration(command.downgrade, config=config, revision=revision_range)
         else:
-            self.log.info("Applying FAB downgrade migrations.")
+            self.log.info("Applying Astronomer Version Check plugin downgrade migrations.")
             command.downgrade(config, revision=to_revision, sql=show_sql_only)
 
     def drop_tables(self, connection):

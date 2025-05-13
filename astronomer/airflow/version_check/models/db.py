@@ -29,6 +29,8 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+Base.metadata = metadata
+
 
 class AstronomerVersionCheck(Base):
     __tablename__ = "astro_version_check"

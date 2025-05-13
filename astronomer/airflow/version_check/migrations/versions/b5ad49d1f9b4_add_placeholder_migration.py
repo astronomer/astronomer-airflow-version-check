@@ -33,7 +33,7 @@ revision = 'b5ad49d1f9b4'
 down_revision = None
 branch_labels = None
 depends_on = None
-fab_version = None
+version = None
 
 
 def upgrade() -> None:
