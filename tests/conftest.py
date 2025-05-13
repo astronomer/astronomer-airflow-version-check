@@ -27,12 +27,11 @@ def get_api_path(request):
 
 @pytest.fixture(scope="module")
 def test_client(request):
+    from airflow.utils.db import initdb
+
     os.environ["AIRFLOW__DATABASE__EXTERNAL_DB_MANAGERS"] = (
         "astronomer.airflow.version_check.models.manager.VersionCheckDBManager"
     )
-    os.environ["AIRFLOW__CORE__LOAD_EXAMPLES"] = "False"
-    os.environ["AIRFLOW_HOME"] = os.getcwd()
-    from airflow.utils.db import initdb
 
     # mimick password for simple auth manager
     airflow_home = '/tmp/airflow'
