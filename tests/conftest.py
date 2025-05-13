@@ -25,8 +25,8 @@ def get_api_path(request):
     return API_PATHS.get(subdirectory_name, "/")
 
 
-@pytest.fixture(scope="module")
-def test_client(request):
+@pytest.fixture
+def test_client(request, caplog):
     from airflow.utils.db import initdb
 
     os.environ["AIRFLOW__DATABASE__EXTERNAL_DB_MANAGERS"] = (

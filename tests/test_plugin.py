@@ -1,3 +1,5 @@
+import os
+
 from airflow import plugins_manager
 
 
@@ -17,3 +19,19 @@ def test_logged_in(test_client):
 def test_anon(unauthorized_test_client):
     response = unauthorized_test_client.get("api/v2/dags")
     assert response.status_code == 403
+
+
+def test_table_created(caplog):
+    """
+    Verify that the tables are created
+    """
+    from airflow.utils.db import resetdb
+
+    caplog.clear()
+    resetdb()
+    assert 'Creating VersionCheckDBManager tables from the ORM' in caplog.text
+    os.environ.pop('AIRFLOW__DATABASE__EXTERNAL_DB_MANAGERS', None)
+    caplog.clear()
+    resetdb()
+
+    assert 'Creating VersionCheckDBManager tables from the ORM' not in caplog.text
