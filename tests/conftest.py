@@ -25,14 +25,23 @@ def get_api_path(request):
     return API_PATHS.get(subdirectory_name, "/")
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def test_client(request):
     os.environ["AIRFLOW__DATABASE__EXTERNAL_DB_MANAGERS"] = (
         "astronomer.airflow.version_check.models.manager.VersionCheckDBManager"
     )
     os.environ["AIRFLOW__CORE__LOAD_EXAMPLES"] = "False"
+    os.environ["AIRFLOW_HOME"] = os.getcwd()
     from airflow.utils.db import initdb
 
+    # mimick password for simple auth manager
+    airflow_home = '/tmp/airflow'
+    os.makedirs(airflow_home, exist_ok=True)
+    file_path = os.path.join(airflow_home, "simple_auth_manager_passwords.json.generated")
+    with open(file_path, "w") as f:
+        f.write('{"admin": "admin"}')
+
+    # initialize the database
     initdb()
     app = create_app()
     auth_manager = app.state.auth_manager
@@ -52,11 +61,6 @@ def test_client(request):
 
 
 @pytest.fixture
-def unauthenticated_test_client(request):
-    return TestClient(create_app(), base_url=f"{BASE_URL}{get_api_path(request)}")
-
-
-@pytest.fixture
 def unauthorized_test_client(request):
     app = create_app()
     auth_manager = app.state.auth_manager
@@ -66,21 +70,6 @@ def unauthorized_test_client(request):
     yield TestClient(
         app, headers={"Authorization": f"Bearer {token}"}, base_url=f"{BASE_URL}{get_api_path(request)}"
     )
-
-
-@pytest.fixture
-def client(request):
-    """This fixture is more flexible than test_client, as it allows to specify which apps to include."""
-    os.environ["AIRFLOW__DATABASE__EXTERNAL_DB_MANAGERS"] = (
-        "astronomer.airflow.version_check.models.manager.VersionCheckDBManager"
-    )
-    os.environ["AIRFLOW__CORE__LOAD_EXAMPLES"] = "False"
-
-    def create_test_client(apps="all"):
-        app = create_app(apps=apps)
-        return TestClient(app, base_url=f"{BASE_URL}{get_api_path(request)}")
-
-    return create_test_client
 
 
 @pytest.fixture

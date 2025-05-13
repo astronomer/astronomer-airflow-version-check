@@ -44,8 +44,8 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
 
         if not cls.all_table_created():
             log.warning(
-                "AstronomerVersionCheck tables are missing (plugin not installed at upgradedb "
-                "time?). No update checks will be performed"
+                "AstronomerVersionCheck tables are missing please ensure to add VersionCheckDBManager "
+                "to AIRFLOW__DATABASE__EXTERNAL_DB_MANAGERS configuration. No update checks will be performed"
             )
             return
 

@@ -14,12 +14,6 @@ from airflow.utils.sqlalchemy import UtcDateTime
 from sqlalchemy import Boolean, Column, Index, String, Text, or_, MetaData
 from airflow.models.base import _get_schema, naming_convention
 
-if TYPE_CHECKING:
-    try:
-        from sqlalchemy import Identity
-    except Exception:
-        Identity = None
-
 metadata = MetaData(schema=_get_schema(), naming_convention=naming_convention)
 
 if TYPE_CHECKING:
