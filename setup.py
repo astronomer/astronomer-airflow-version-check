@@ -94,7 +94,7 @@ setup(
         'semver~=3.0.0',
     ],
     setup_requires=[
-        'pytest-runner~=5.3',
+        'pytest-runner',
     ],
     tests_require=[
         'astronomer-airflow-version-check[test]',

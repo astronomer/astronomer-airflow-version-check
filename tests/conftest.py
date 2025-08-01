@@ -1,90 +1,68 @@
-from flask.testing import FlaskClient
+import os
+
 import pytest
+from fastapi.testclient import TestClient
+
+from airflow.api_fastapi.app import create_app
+from airflow.api_fastapi.auth.managers.simple.user import SimpleAuthManagerUser
+import datetime
+import time_machine
 
 
-def pytest_configure(config):
-    config.addinivalue_line("markers", "login_as")
+API_PATHS = {
+    "public": "/api/v2",
+    "ui": "/ui",
+}
+
+BASE_URL = "http://testserver"
+
+
+def get_api_path(request):
+    """Determine the API path based on the test's subdirectory."""
+    test_dir = os.path.dirname(request.path)
+    subdirectory_name = test_dir.split("/")[-1]
+
+    return API_PATHS.get(subdirectory_name, "/")
 
 
 @pytest.fixture
-def client(app, user, request):
-    """The test client, optionally logged in as a user of the given role
-
-    @pytest.mark.login_as('Admin')
-    def test_while_logged_in(client):
-        ....
-
-    def test_while_anon(client):
-        ...
-
-    """
-    marker = request.node.get_closest_marker('login_as')
-    user_obj = None
-
-    if marker:
-        user_obj = user(marker.args[0])
-
-    with app.test_client(user=user_obj) as client:
-        yield client
-
-
-@pytest.fixture(scope='session')
-def app():
+def test_client(request, caplog):
     from airflow.utils.db import initdb
-    from airflow.www.app import create_app
 
+    os.environ["AIRFLOW__DATABASE__EXTERNAL_DB_MANAGERS"] = (
+        "astronomer.airflow.version_check.models.manager.VersionCheckDBManager"
+    )
+    os.environ["AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS"] = "True"
+
+    # initialize the database
     initdb()
-    app = create_app(testing=True)
-    app.test_client_class = FlaskLoginClient
-    return app
-
-
-@pytest.fixture()
-def appbuilder(app):
-    return app.appbuilder
+    app = create_app()
+    auth_manager = app.state.auth_manager
+    # set time_very_before to 2014-01-01 00:00:00 and time_very_after to tomorrow
+    # to make the JWT token always valid for all test cases with time_machine
+    time_very_before = datetime.datetime(2014, 1, 1, 0, 0, 0)
+    time_after = datetime.datetime.now() + datetime.timedelta(days=1)
+    with time_machine.travel(time_very_before, tick=False):
+        token = auth_manager._get_token_signer(
+            expiration_time_in_seconds=(time_after - time_very_before).total_seconds()
+        ).generate(
+            auth_manager.serialize_user(SimpleAuthManagerUser(username="test", role="admin")),
+        )
+    yield TestClient(
+        app, headers={"Authorization": f"Bearer {token}"}, base_url=f"{BASE_URL}{get_api_path(request)}"
+    )
 
 
 @pytest.fixture
-def user(appbuilder):
-    def _user(role):
-        username = role.lower()
-
-        user = appbuilder.sm.find_user(username=username)
-        if user:
-            return user
-
-        txn2 = appbuilder.session.begin_nested()
-        role_obj = appbuilder.sm.find_role(role)
-        if not appbuilder.sm.add_user(username, "Local", role, f'{username}@fab.org', role_obj, role.lower()):
-            raise RuntimeError("Error creating test user")
-        if txn2.is_active:
-            # add_user calls commit(), but lets be safe and ensure it does
-            txn2.commit()
-        user = appbuilder.sm.find_user(username=username)
-
-        return user
-
-    return _user
-
-
-class FlaskLoginClient(FlaskClient):
-    """
-    A Flask test client that knows how to log in users
-    using the Flask-Login extension.
-
-    This is taken from flask-login 0.5, but right now airflow needs <0.5
-    """
-
-    def __init__(self, *args, **kwargs):
-        user = kwargs.pop("user", None)
-        fresh = kwargs.pop("fresh_login", True)
-
-        super().__init__(*args, **kwargs)
-
-        if user:
-            with self.session_transaction() as sess:
-                sess["user_id"] = user.id
-                sess["_fresh"] = fresh
+def unauthorized_test_client(request):
+    app = create_app()
+    auth_manager = app.state.auth_manager
+    token = auth_manager._get_token_signer().generate(
+        auth_manager.serialize_user(SimpleAuthManagerUser(username="dummy", role=None))
+    )
+    yield TestClient(
+        app, headers={"Authorization": f"Bearer {token}"}, base_url=f"{BASE_URL}{get_api_path(request)}"
+    )
 
 
 @pytest.fixture

@@ -1,4 +1,4 @@
-from astronomer.airflow.version_check.models import AstronomerVersionCheck, AstronomerAvailableVersion
+from astronomer.airflow.version_check.models.db import AstronomerVersionCheck, AstronomerAvailableVersion
 from astronomer.airflow.version_check.update_checks import (
     CheckThread,
     UpdateAvailableHelper,
@@ -18,7 +18,7 @@ def mock_test_env(monkeypatch):
 @pytest.mark.parametrize("image_version, new_patch_version", [("3.0-1", "3.0-2")])
 @mock.patch.object(CheckThread, '_convert_runtime_versions')
 def test_update_check_for_image_with_newer_patch(
-    mock_convert_runtime_versions, image_version, new_patch_version, app, session
+    mock_convert_runtime_versions, image_version, new_patch_version, session
 ):
     from airflow.utils.db import resetdb
 
@@ -45,7 +45,7 @@ def test_update_check_for_image_with_newer_patch(
         },
     ]
 
-    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
+    with mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
         resetdb()
         vc = AstronomerVersionCheck(singleton=True)
         session.add(vc)
@@ -69,7 +69,7 @@ def test_update_check_for_image_with_newer_patch(
 
 
 @mock.patch.object(CheckThread, '_convert_runtime_versions')
-def test_update_check_for_image_already_on_the_highest_patch(mock_convert_runtime_versions, app, session):
+def test_update_check_for_image_already_on_the_highest_patch(mock_convert_runtime_versions, session):
     from airflow.utils.db import resetdb
 
     mock_convert_runtime_versions.return_value = [
@@ -106,7 +106,7 @@ def test_update_check_for_image_already_on_the_highest_patch(mock_convert_runtim
     ]
 
     image_version = "3.0-2"
-    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
+    with mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
         resetdb()
         vc = AstronomerVersionCheck(singleton=True)
         session.add(vc)
@@ -130,7 +130,7 @@ def test_update_check_for_image_already_on_the_highest_patch(mock_convert_runtim
 @mock.patch('astronomer.airflow.version_check.update_checks.get_runtime_version')
 @mock.patch.object(CheckThread, '_convert_runtime_versions')
 def test_update_check_dont_show_update_if_no_new_version_available(
-    mock_convert_runtime_versions, mock_runtime_version, app, session
+    mock_convert_runtime_versions, mock_runtime_version, session
 ):
     from airflow.utils.db import resetdb
 
@@ -147,7 +147,7 @@ def test_update_check_dont_show_update_if_no_new_version_available(
         }
     ]
 
-    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": '3.0-1'}):
+    with mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": '3.0-1'}):
         resetdb()
         vc = AstronomerVersionCheck(singleton=True)
         session.add(vc)
@@ -182,10 +182,10 @@ def test_update_check_dont_show_update_if_no_new_version_available(
         assert result is None
 
 
-def test_alpha_beta_versions_are_not_recorded(app, session):
+def test_alpha_beta_versions_are_not_recorded(session):
     from airflow.utils.db import resetdb
 
-    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": '3.0-1'}):
+    with mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": '3.0-1'}):
         resetdb()
         vc = AstronomerVersionCheck(singleton=True)
         session.add(vc)
@@ -218,14 +218,14 @@ def test_alpha_beta_versions_are_not_recorded(app, session):
             assert item not in recorded
 
 
-def test_plugin_table_created(app, session):
+def test_plugin_table_created(session):
     from airflow.cli.commands.standalone_command import standalone
     from sqlalchemy import inspect
     import threading
 
     engine = session.get_bind(mapper=None, clause=None)
     inspector = inspect(engine)
-    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": '5.0.0'}):
+    with mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": '5.0.0'}):
         thread = threading.Thread(target=standalone, args=('webserver',))
         thread.daemon = True
         thread.start()
@@ -243,12 +243,12 @@ def test_plugin_table_created(app, session):
     [("3.0-1", 10, 'warning', 10), ("3.0-1", -1, 'critical', -1)],
 )
 def test_days_to_eol_warning_and_critical(
-    app, session, image_version, eol_days_offset, expected_level, expected_days_to_eol
+    session, image_version, eol_days_offset, expected_level, expected_days_to_eol
 ):
     from airflow.utils.db import resetdb
 
     end_of_support_date = utcnow() + timedelta(days=eol_days_offset)
-    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
+    with mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
         resetdb()
         vc = AstronomerVersionCheck(singleton=True)
         session.add(vc)
@@ -277,10 +277,10 @@ def test_days_to_eol_warning_and_critical(
     "image_version, yanked",
     [("3.0-1", True), ("3.0-1", False)],
 )
-def test_yanked_version_excluded_from_updates(app, session, image_version, yanked):
+def test_yanked_version_excluded_from_updates(session, image_version, yanked):
     from airflow.utils.db import resetdb
 
-    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
+    with mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
         resetdb()
         vc = AstronomerVersionCheck(singleton=True)
         session.add(vc)
@@ -312,10 +312,10 @@ def test_yanked_version_excluded_from_updates(app, session, image_version, yanke
     "image_version, yanked",
     [("3.0-1", True), ("3.0-1", False)],
 )
-def test_available_yanked(app, session, image_version, yanked):
+def test_available_yanked(session, image_version, yanked):
     from airflow.utils.db import resetdb
 
-    with app.app_context(), mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
+    with mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
         resetdb()
         vc = AstronomerVersionCheck(singleton=True)
         session.add(vc)
