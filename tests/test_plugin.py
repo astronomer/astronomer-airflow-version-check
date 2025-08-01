@@ -30,6 +30,7 @@ def test_logged_in(client):
 
 def test_anon(client):
     response = client.get(url_for('Airflow.index'))
+    # just for test
     assert response.status_code == 302
 
 
