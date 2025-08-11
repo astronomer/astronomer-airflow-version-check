@@ -4,5 +4,6 @@ wheel==0.45.1
 apache-airflow==3.0.1
 flake8==5.0.4
 time_machine
+pytest-env
 
 -e .[test]
