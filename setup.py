@@ -93,9 +93,7 @@ setup(
         'importlib_metadata;python_version<"3.9"',
         'semver~=3.0.0',
     ],
-    setup_requires=[
-        'pytest-runner~=5.3',
-    ],
+    setup_requires=['pytest-runner'],
     tests_require=[
         'astronomer-airflow-version-check[test]',
     ],

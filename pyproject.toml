@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools==63.4.3", "wheel==0.45.1", "pytest-runner~=5.3"]
+requires = ["setuptools", "wheel", "pytest-runner", "pytest-env"]
 
 [tool.black]
 line-length = 110
