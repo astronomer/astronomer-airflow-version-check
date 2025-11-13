@@ -32,7 +32,8 @@ def test_update_check_for_image_with_newer_patch(
             "url": "",
             "description": "",
             "release_date": "2021-07-20",
-            "end_of_support": "2022-02-28",
+            "end_of_maintenance": "2022-02-28",
+            "end_of_basic_support": "2022-08-28",
             "yanked": False,
         },
         {
@@ -42,7 +43,8 @@ def test_update_check_for_image_with_newer_patch(
             "url": "",
             "description": "",
             "release_date": "2021-07-20",
-            "end_of_support": "2022-02-28",
+            "end_of_maintenance": "2022-02-28",
+            "end_of_basic_support": "2022-08-28",
             "yanked": False,
         },
     ]
@@ -82,7 +84,8 @@ def test_update_check_for_image_already_on_the_highest_patch(mock_convert_runtim
             "url": "",
             "description": "",
             "release_date": "2021-07-20",
-            "end_of_support": "2022-02-28",
+            "end_of_maintenance": "2022-02-28",
+            "end_of_basic_support": "2022-08-28",
             "yanked": False,
         },
         {
@@ -92,7 +95,8 @@ def test_update_check_for_image_already_on_the_highest_patch(mock_convert_runtim
             "url": "",
             "description": "",
             "release_date": "2021-07-20",
-            "end_of_support": "2022-02-28",
+            "end_of_maintenance": "2022-02-28",
+            "end_of_basic_support": "2022-08-28",
             "yanked": False,
         },
         {
@@ -102,7 +106,8 @@ def test_update_check_for_image_already_on_the_highest_patch(mock_convert_runtim
             "url": "",
             "description": "",
             "release_date": "2021-07-20",
-            "end_of_support": "2022-02-28",
+            "end_of_maintenance": "2022-02-28",
+            "end_of_basic_support": "2022-08-28",
             "yanked": False,
         },
     ]
@@ -144,7 +149,8 @@ def test_update_check_dont_show_update_if_no_new_version_available(
             "url": "",
             "description": "",
             "release_date": "2021-07-20",
-            "end_of_support": "2022-02-28",
+            "end_of_maintenance": "2022-02-28",
+            "end_of_basic_support": "2022-08-28",
             "yanked": False,
         }
     ]
@@ -164,8 +170,8 @@ def test_update_check_dont_show_update_if_no_new_version_available(
                         "airflowVersion": "3.0.0",
                         "channel": "deprecated",
                         "releaseDate": "2021-07-20",
-                        "endOfSupport": "2022-02-28",
-                        "LTS": False,
+                        "endOfMaintenance": "2022-02-28",
+                        "endOfBasicSupport": "2022-08-28",
                     },
                     "migrations": {"airflowDatabase": True},
                 }
@@ -203,8 +209,8 @@ def test_alpha_beta_versions_are_not_recorded(session):
                         "airflowVersion": "3.0.0",
                         "channel": "alpha",
                         "releaseDate": "2025-02-20",
-                        "endOfSupport": "2025-02-19",
-                        "LTS": False,
+                        "endOfMaintenance": "2025-02-19",
+                        "endOfBasicSupport": "2025-08-19",
                     },
                     "migrations": {"airflowDatabase": True},
                 }
@@ -248,7 +254,7 @@ def test_days_to_eol_warning_and_critical(
 ):
     from airflow.utils.db import resetdb
 
-    end_of_support_date = utcnow() + timedelta(days=eol_days_offset)
+    end_of_maintenance_date = utcnow() + timedelta(days=eol_days_offset)
     with mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
         resetdb()
         vc = AstronomerVersionCheck(singleton=True)
@@ -262,7 +268,7 @@ def test_days_to_eol_warning_and_critical(
             description="",
             url="",
             hidden_from_ui=False,
-            end_of_support=end_of_support_date,
+            end_of_maintenance=end_of_maintenance_date,
         )
         session.add(av)
         session.commit()

@@ -247,9 +247,15 @@ class CheckThread(threading.Thread, LoggingMixin):
                 else pendulum.now("UTC")
             )
 
-            end_of_support = (
-                pendulum.parse(release.get("end_of_support"), timezone="UTC")
-                if release.get("end_of_support")
+            end_of_maintenance = (
+                pendulum.parse(release.get('end_of_maintenance'), timezone='UTC')
+                if release.get('end_of_maintenance')
+                else None
+            )
+
+            end_of_basic_support = (
+                pendulum.parse(release.get('end_of_basic_support'), timezone='UTC')
+                if release.get('end_of_basic_support')
                 else None
             )
 
@@ -259,7 +265,8 @@ class CheckThread(threading.Thread, LoggingMixin):
                 date_released=release_date,
                 url=release.get("url"),
                 description=release.get("description"),
-                end_of_support=end_of_support,
+                end_of_maintenance=end_of_maintenance,
+                end_of_basic_support=end_of_basic_support,
                 hidden_from_ui=True if parsed_ver == current_version else False,
                 yanked=release.get("yanked", False),
             )
@@ -275,7 +282,8 @@ class CheckThread(threading.Thread, LoggingMixin):
                         "airflowVersion": "2.1.1",
                         "channel": "deprecated",
                         "releaseDate": "2021-07-20",
-                        "endOfSupport": "2022-02-28"
+                        "endOfMaintenance": "2022-02-28",
+                        "endOfBasicSupport": "2022-08-28"
                     },
                     "migrations": {"airflowDatabase": "true"},
                 },
@@ -288,7 +296,8 @@ class CheckThread(threading.Thread, LoggingMixin):
                 "url": "",
                 "description": "",
                 "release_date": "2021-07-20",
-                "end_of_support": "2022-02-28",
+                "end_of_maintenance": "2022-02-28",
+                "end_of_basic_support": "2022-08-28",
                 "yanked": False
             }]
         """
@@ -300,10 +309,11 @@ class CheckThread(threading.Thread, LoggingMixin):
             new_dict["level"] = ""
             new_dict["url"] = ""
             new_dict["description"] = ""
-            new_dict["release_date"] = metadata["releaseDate"]
-            new_dict["channel"] = metadata["channel"]
-            new_dict["end_of_support"] = metadata.get("endOfSupport")
-            new_dict["yanked"] = metadata.get("yanked", False)
+            new_dict['release_date'] = metadata['releaseDate']
+            new_dict['channel'] = metadata['channel']
+            new_dict['end_of_maintenance'] = metadata.get('endOfMaintenance')
+            new_dict['end_of_basic_support'] = metadata.get('endOfBasicSupport')
+            new_dict['yanked'] = metadata.get('yanked', False)
             versions.append(new_dict)
         return versions
 
@@ -320,7 +330,8 @@ class CheckThread(threading.Thread, LoggingMixin):
                         "airflowVersion": "3.0.0",
                         "channel": "deprecated",
                         "releaseDate": "2021-07-20",
-                        "endOfSupport": "2022-02-28",
+                        "endOfMaintenance": "2022-02-28",
+                        "endOfBasicSupport": "2022-08-28",
                         "yanked": False,
                     },
                     "migrations": {"airflowDatabase": "true"},
@@ -355,13 +366,13 @@ class UpdateAvailableHelper(LoggingMixin):
 
     def get_eol_notice(self, current_version) -> dict[str, Any] | None:
         """
-        Get the EOL notice information if the current version is near or past its EOL.
+        Get the EOL notice information if the current version is near or past its end of maintenance.
 
         :param current_version: The current runtime version information.
         """
-        if current_version and current_version.end_of_support:
+        if current_version and current_version.end_of_maintenance:
             now = utcnow()
-            days_to_eol = (current_version.end_of_support - now).days
+            days_to_eol = (current_version.end_of_maintenance - now).days
             if days_to_eol <= self.eol_warning_threshold_days:
                 if not current_version.eos_dismissed_until or now > current_version.eos_dismissed_until:
                     eol_level = "critical" if days_to_eol <= 0 else "warning"
@@ -369,9 +380,9 @@ class UpdateAvailableHelper(LoggingMixin):
                         "Astronomer Runtime",
                         current_version.version,
                         (
-                            "has reached its end of life"
+                            "has reached its end of maintenance"
                             if days_to_eol <= 0
-                            else f"will reach its end of life in {days_to_eol} days"
+                            else f"will reach its end of maintenance in {days_to_eol} days"
                         ),
                     )
                     return {

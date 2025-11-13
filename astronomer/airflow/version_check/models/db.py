@@ -107,7 +107,8 @@ class AstronomerAvailableVersion(Base):
     description = Column(Text)
     url = Column(Text)
     hidden_from_ui = Column(Boolean, default=False, nullable=False)
-    end_of_support = Column(UtcDateTime(timezone=True), nullable=True)
+    end_of_maintenance = Column(UtcDateTime(timezone=True), nullable=True)
+    end_of_basic_support = Column(UtcDateTime(timezone=True), nullable=True)
     eos_dismissed_until = Column(UtcDateTime(timezone=True), nullable=True)
     yanked = Column(Boolean, default=False, nullable=True)
 
