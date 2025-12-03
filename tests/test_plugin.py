@@ -1,5 +1,3 @@
-import os
-
 from airflow import plugins_manager
 
 
@@ -21,17 +19,23 @@ def test_anon(unauthorized_test_client):
     assert response.status_code == 403
 
 
-def test_table_created(caplog):
+def test_table_created(caplog, monkeypatch):
     """
-    Verify that the tables are created
+    Verify that the tables are created only when EXTERNAL_DB_MANAGERS is set.
     """
     from airflow.utils.db import resetdb
 
+    # Test 1: Without EXTERNAL_DB_MANAGERS - tables should NOT be created
+    monkeypatch.delenv("AIRFLOW__DATABASE__EXTERNAL_DB_MANAGERS", raising=False)
+    caplog.clear()
+    resetdb()
+    assert 'Creating VersionCheckDBManager tables from the ORM' not in caplog.text
+
+    # Test 2: With EXTERNAL_DB_MANAGERS - tables SHOULD be created
+    monkeypatch.setenv(
+        "AIRFLOW__DATABASE__EXTERNAL_DB_MANAGERS",
+        "astronomer.airflow.version_check.models.manager.VersionCheckDBManager",
+    )
     caplog.clear()
     resetdb()
     assert 'Creating VersionCheckDBManager tables from the ORM' in caplog.text
-    os.environ.pop('AIRFLOW__DATABASE__EXTERNAL_DB_MANAGERS', None)
-    caplog.clear()
-    resetdb()
-
-    assert 'Creating VersionCheckDBManager tables from the ORM' not in caplog.text
