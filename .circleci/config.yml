@@ -42,20 +42,20 @@ jobs:
             pytest --junitxml=test-results/junit.xml
       - run:
           command: |
-            cp .pre-commit-config.yaml pre-commit-cache-key.txt
-            python --version --version >> pre-commit-cache-key.txt
+            cp .pre-commit-config.yaml prek-cache-key.txt
+            python --version --version >> prek-cache-key.txt
       - restore_cache:
           keys:
-            - v1-pc-cache-{{ checksum "pre-commit-cache-key.txt" }}
+            - v1-prek-cache-{{ checksum "prek-cache-key.txt" }}
       - run:
           command: |
             . .venv/bin/activate
-            pip install pre-commit
-            pre-commit run --all-files --show-diff-on-failure
+            pip install prek
+            prek run --all-files --show-diff-on-failure
       - save_cache:
-          key: v1-pc-cache-{{ checksum "pre-commit-cache-key.txt" }}
+          key: v1-prek-cache-{{ checksum "prek-cache-key.txt" }}
           paths:
-            - ~/.cache/pre-commit
+            - ~/.cache/prek
       - run:
           name: build_wheel
           command: |
