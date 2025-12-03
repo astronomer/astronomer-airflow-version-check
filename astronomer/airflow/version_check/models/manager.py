@@ -4,7 +4,7 @@ from pathlib import Path
 
 from airflow import settings
 from airflow.exceptions import AirflowException
-from astronomer.airflow.version_check.models.db import metadata
+from astronomer.airflow.version_check.models.db import Base
 from airflow.utils.db import _offline_migration, print_happy_cat
 from airflow.utils.db_manager import BaseDBManager
 
@@ -18,7 +18,7 @@ _REVISION_HEADS_MAP: dict[str, str] = {
 class VersionCheckDBManager(BaseDBManager):
     """Manages Version Check database."""
 
-    metadata = metadata
+    metadata = Base.metadata
     version_table_name = "alembic_version_astro_version_check"
     migration_dir = (PACKAGE_DIR / "migrations").as_posix()
     alembic_file = (PACKAGE_DIR / "alembic.ini").as_posix()
