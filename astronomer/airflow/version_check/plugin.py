@@ -53,7 +53,7 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
 
         cls.add_before_call(
             SchedulerJobRunner,
-            '_execute',
+            "_execute",
             cls.start_update_thread,
         )
 
@@ -61,6 +61,7 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
     def start_update_thread(cls) -> None:
         """Start the update check thread."""
         from astronomer.airflow.version_check.models.db import AstronomerVersionCheck
+
         from .update_checks import CheckThread
 
         if not cls.all_table_created():
@@ -85,7 +86,7 @@ class AstronomerVersionCheckPlugin(AirflowPlugin):
         with create_session() as session:
             engine = session.get_bind(mapper=None, clause=None)
             inspector = inspect(engine)
-            if not getattr(inspector, 'has_table', None):
+            if not getattr(inspector, "has_table", None):
                 inspector = engine
             for table in tables:
                 if not inspector.has_table(table.__tablename__):

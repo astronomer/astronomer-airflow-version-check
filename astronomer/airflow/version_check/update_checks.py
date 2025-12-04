@@ -1,32 +1,30 @@
 from __future__ import annotations
-from typing import Any
+
 import enum
 import json
 import os
 import platform
 import random
+import re
 import sys
 import threading
 import time
 from datetime import timedelta
-import re
+from functools import wraps
+from typing import Any, Callable, Sequence, TypeVar, cast
 
 import distro
 import pendulum
 import requests
 import sqlalchemy.exc
-from typing import Callable, TypeVar, cast, Sequence
-from requests.exceptions import SSLError, HTTPError
-from sqlalchemy import or_
-from flask import flash, redirect, render_template, request, g
-from semver import Version as version
-
 from airflow.configuration import conf
-from airflow.utils.session import create_session
 from airflow.utils.log.logging_mixin import LoggingMixin
+from airflow.utils.session import create_session
 from airflow.utils.timezone import utcnow
-from functools import wraps
-
+from flask import flash, g, redirect, render_template, request
+from requests.exceptions import HTTPError, SSLError
+from semver import Version as version
+from sqlalchemy import or_
 
 T = TypeVar("T", bound=Callable)
 
@@ -39,8 +37,8 @@ def has_access_(permissions: Sequence[tuple[str, str]]) -> Callable[[T], T]:
     method: str = permissions[0][0]
     resource_type: str = permissions[0][1]
 
-    from airflow.utils.net import get_hostname
     from airflow.api_fastapi.app import get_auth_manager
+    from airflow.utils.net import get_hostname
 
     def decorated(*, is_authorized: bool, func: Callable, args, kwargs):
         """
@@ -120,7 +118,7 @@ class CheckThread(threading.Thread, LoggingMixin):
             "astronomer", "update_url", fallback="https://updates.astronomer.io/astronomer-runtime"
         )
 
-        if conf.getboolean('astronomer', '_fake_check', fallback=False):
+        if conf.getboolean("astronomer", "_fake_check", fallback=False):
             self._get_update_json = self._make_fake_runtime_response
 
     def run(self):
@@ -177,7 +175,7 @@ class CheckThread(threading.Thread, LoggingMixin):
             try:
                 lock = AstronomerVersionCheck.acquire_lock(self.check_interval, session=session)
             except sqlalchemy.exc.OperationalError as e:
-                if hasattr(e.orig, 'pgcode') and e.orig.pgcode == '55P03':
+                if hasattr(e.orig, "pgcode") and e.orig.pgcode == "55P03":
                     self.log.debug("Could not acquire lock, or check not due, sleeping for 60s+/-10s")
                     return UpdateResult.FAILURE, random.uniform(50, 70)
                 raise
@@ -222,18 +220,18 @@ class CheckThread(threading.Thread, LoggingMixin):
 
         self.log.debug(
             "Raw versions in update document: %r",
-            list(r['version'] for r in versions),
+            list(r["version"] for r in versions),
         )
 
         def parse_version(rel):
-            rel['parsed_version'] = parse_new_version(rel['version'])
+            rel["parsed_version"] = parse_new_version(rel["version"])
             return rel
 
         releases = map(parse_version, versions)
 
-        for release in sorted(releases, key=lambda rel: rel['parsed_version'], reverse=True):
-            parsed_ver = release['parsed_version']
-            if release['channel'] in ['alpha', 'beta']:  # ignore alpha & beta releases
+        for release in sorted(releases, key=lambda rel: rel["parsed_version"], reverse=True):
+            parsed_ver = release["parsed_version"]
+            if release["channel"] in ["alpha", "beta"]:  # ignore alpha & beta releases
                 continue
             if parsed_ver < current_version:
                 self.log.debug(
@@ -244,26 +242,26 @@ class CheckThread(threading.Thread, LoggingMixin):
                 break
 
             release_date = (
-                pendulum.parse(release['release_date'], timezone='UTC')
-                if 'release_date' in release
-                else pendulum.now('UTC')
+                pendulum.parse(release["release_date"], timezone="UTC")
+                if "release_date" in release
+                else pendulum.now("UTC")
             )
 
             end_of_support = (
-                pendulum.parse(release.get('end_of_support'), timezone='UTC')
-                if release.get('end_of_support')
+                pendulum.parse(release.get("end_of_support"), timezone="UTC")
+                if release.get("end_of_support")
                 else None
             )
 
             yield AstronomerAvailableVersion(
-                version=release['version'],
-                level=release['level'],
+                version=release["version"],
+                level=release["level"],
                 date_released=release_date,
-                url=release.get('url'),
-                description=release.get('description'),
+                url=release.get("url"),
+                description=release.get("description"),
                 end_of_support=end_of_support,
                 hidden_from_ui=True if parsed_ver == current_version else False,
-                yanked=release.get('yanked', False),
+                yanked=release.get("yanked", False),
             )
 
     def _convert_runtime_versions(self, runtime_versions):
@@ -296,27 +294,27 @@ class CheckThread(threading.Thread, LoggingMixin):
         """
         versions = []
         for k, v in runtime_versions.items():
-            metadata = v['metadata']
+            metadata = v["metadata"]
             new_dict = {}
-            new_dict['version'] = k
+            new_dict["version"] = k
             new_dict["level"] = ""
             new_dict["url"] = ""
             new_dict["description"] = ""
-            new_dict['release_date'] = metadata['releaseDate']
-            new_dict['channel'] = metadata['channel']
-            new_dict['end_of_support'] = metadata.get('endOfSupport')
-            new_dict['yanked'] = metadata.get('yanked', False)
+            new_dict["release_date"] = metadata["releaseDate"]
+            new_dict["channel"] = metadata["channel"]
+            new_dict["end_of_support"] = metadata.get("endOfSupport")
+            new_dict["yanked"] = metadata.get("yanked", False)
             versions.append(new_dict)
         return versions
 
     def _make_fake_runtime_response(self):
         v = parse_new_version(self.runtime_version)
 
-        new_version = f'{v.major}.{v.minor}-{v.patch}'
+        new_version = f"{v.major}.{v.minor}-{v.patch}"
 
         return {
-            'features': {},
-            'runtimeVersionsV3': {
+            "features": {},
+            "runtimeVersionsV3": {
                 new_version: {
                     "metadata": {
                         "airflowVersion": "3.0.0",
@@ -337,9 +335,9 @@ class CheckThread(threading.Thread, LoggingMixin):
                 self.update_url,
                 timeout=self.request_timeout,
                 params={
-                    'site': self.base_url,
+                    "site": self.base_url,
                 },
-                headers={'User-Agent': f'airflow/{self.runtime_version} {json_data}'},
+                headers={"User-Agent": f"airflow/{self.runtime_version} {json_data}"},
             )
             r.raise_for_status()
             return r.json()
@@ -366,7 +364,7 @@ class UpdateAvailableHelper(LoggingMixin):
             days_to_eol = (current_version.end_of_support - now).days
             if days_to_eol <= self.eol_warning_threshold_days:
                 if not current_version.eos_dismissed_until or now > current_version.eos_dismissed_until:
-                    eol_level = 'critical' if days_to_eol <= 0 else 'warning'
+                    eol_level = "critical" if days_to_eol <= 0 else "warning"
                     description = "{} version {} {}.".format(
                         "Astronomer Runtime",
                         current_version.version,
@@ -393,9 +391,7 @@ class UpdateAvailableHelper(LoggingMixin):
         with create_session() as session:
             available_releases = session.query(AstronomerAvailableVersion).filter(
                 AstronomerAvailableVersion.hidden_from_ui.is_(False),
-                or_(
-                    AstronomerAvailableVersion.yanked.is_(False), AstronomerAvailableVersion.yanked.is_(None)
-                ),
+                or_(AstronomerAvailableVersion.yanked.is_(False), AstronomerAvailableVersion.yanked.is_(None)),
             )
 
         runtime_version = parse_new_version(get_runtime_version())
@@ -423,11 +419,11 @@ class UpdateAvailableHelper(LoggingMixin):
         if sorted_releases:
             recent_release = sorted_releases[0]
             return {
-                'level': recent_release.level,
-                'date_released': recent_release.date_released,
-                'description': recent_release.description,
-                'version': recent_release.version,
-                'url': recent_release.url,
+                "level": recent_release.level,
+                "date_released": recent_release.date_released,
+                "description": recent_release.description,
+                "version": recent_release.version,
+                "url": recent_release.url,
                 "app_name": "Astronomer Runtime",
             }
 
@@ -435,8 +431,9 @@ class UpdateAvailableHelper(LoggingMixin):
 
     def available_eol(self) -> dict[str, Any] | None:
         """Check if there is an EOL notice for the current version of Astronomer Runtime."""
-        from .plugin import eol_warning_opt_out
         from astronomer.airflow.version_check.models.db import AstronomerAvailableVersion
+
+        from .plugin import eol_warning_opt_out
 
         if eol_warning_opt_out:
             return None
@@ -479,7 +476,6 @@ def get_runtime_version():
 
 
 def get_user_string_data():
-
     data = {
         "python": platform.python_version(),
         "implementation": {
@@ -513,6 +509,6 @@ def get_user_string_data():
     if platform.machine():
         data["cpu"] = platform.machine()
 
-    data["ci"] = True if any(name in os.environ for name in ['BUILD_BUILDID', 'BUILD_ID', 'CI']) else None
+    data["ci"] = True if any(name in os.environ for name in ["BUILD_BUILDID", "BUILD_ID", "CI"]) else None
 
     return json.dumps(data, separators=(",", ":"), sort_keys=True)
