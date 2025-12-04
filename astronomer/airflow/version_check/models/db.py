@@ -6,15 +6,13 @@ import threading
 from typing import TYPE_CHECKING
 
 import sqlalchemy.ext
-from airflow.models import Base
+from sqlalchemy import Boolean, Column, Index, MetaData, String, Text, or_
+from sqlalchemy.orm import declarative_base
+from airflow.models.base import _get_schema, naming_convention
 from airflow.utils.session import create_session
 from airflow.utils.net import get_hostname
 from airflow.utils.timezone import utcnow
 from airflow.utils.sqlalchemy import UtcDateTime
-from sqlalchemy import Boolean, Column, Index, String, Text, or_, MetaData
-from airflow.models.base import _get_schema, naming_convention
-
-metadata = MetaData(schema=_get_schema(), naming_convention=naming_convention)
 
 if TYPE_CHECKING:
     from datetime import timedelta
@@ -23,7 +21,8 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-Base.metadata = metadata
+metadata = MetaData(schema=_get_schema(), naming_convention=naming_convention)
+Base = declarative_base(metadata=metadata)
 
 
 class AstronomerVersionCheck(Base):
