@@ -248,14 +248,14 @@ class CheckThread(threading.Thread, LoggingMixin):
             )
 
             end_of_maintenance = (
-                pendulum.parse(release.get('end_of_maintenance'), timezone='UTC')
-                if release.get('end_of_maintenance')
+                pendulum.parse(release.get("end_of_maintenance"), timezone="UTC")
+                if release.get("end_of_maintenance")
                 else None
             )
 
             end_of_basic_support = (
-                pendulum.parse(release.get('end_of_basic_support'), timezone='UTC')
-                if release.get('end_of_basic_support')
+                pendulum.parse(release.get("end_of_basic_support"), timezone="UTC")
+                if release.get("end_of_basic_support")
                 else None
             )
 
@@ -309,11 +309,11 @@ class CheckThread(threading.Thread, LoggingMixin):
             new_dict["level"] = ""
             new_dict["url"] = ""
             new_dict["description"] = ""
-            new_dict['release_date'] = metadata['releaseDate']
-            new_dict['channel'] = metadata['channel']
-            new_dict['end_of_maintenance'] = metadata.get('endOfMaintenance')
-            new_dict['end_of_basic_support'] = metadata.get('endOfBasicSupport')
-            new_dict['yanked'] = metadata.get('yanked', False)
+            new_dict["release_date"] = metadata["releaseDate"]
+            new_dict["channel"] = metadata["channel"]
+            new_dict["end_of_maintenance"] = metadata.get("endOfMaintenance")
+            new_dict["end_of_basic_support"] = metadata.get("endOfBasicSupport")
+            new_dict["yanked"] = metadata.get("yanked", False)
             versions.append(new_dict)
         return versions
 
