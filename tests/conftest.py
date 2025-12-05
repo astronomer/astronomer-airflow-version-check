@@ -1,13 +1,11 @@
+import datetime
 import os
 
 import pytest
-from fastapi.testclient import TestClient
-
+import time_machine
 from airflow.api_fastapi.app import create_app
 from airflow.api_fastapi.auth.managers.simple.user import SimpleAuthManagerUser
-import datetime
-import time_machine
-
+from fastapi.testclient import TestClient
 
 API_PATHS = {
     "public": "/api/v2",
@@ -48,9 +46,7 @@ def test_client(request, caplog):
         ).generate(
             auth_manager.serialize_user(SimpleAuthManagerUser(username="test", role="admin")),
         )
-    yield TestClient(
-        app, headers={"Authorization": f"Bearer {token}"}, base_url=f"{BASE_URL}{get_api_path(request)}"
-    )
+    yield TestClient(app, headers={"Authorization": f"Bearer {token}"}, base_url=f"{BASE_URL}{get_api_path(request)}")
 
 
 @pytest.fixture
@@ -60,9 +56,7 @@ def unauthorized_test_client(request):
     token = auth_manager._get_token_signer().generate(
         auth_manager.serialize_user(SimpleAuthManagerUser(username="dummy", role=None))
     )
-    yield TestClient(
-        app, headers={"Authorization": f"Bearer {token}"}, base_url=f"{BASE_URL}{get_api_path(request)}"
-    )
+    yield TestClient(app, headers={"Authorization": f"Bearer {token}"}, base_url=f"{BASE_URL}{get_api_path(request)}")
 
 
 @pytest.fixture

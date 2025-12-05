@@ -4,9 +4,10 @@ from pathlib import Path
 
 from airflow import settings
 from airflow.exceptions import AirflowException
-from astronomer.airflow.version_check.models.db import Base
 from airflow.utils.db import _offline_migration, print_happy_cat
 from airflow.utils.db_manager import BaseDBManager
+
+from astronomer.airflow.version_check.models.db import Base
 
 PACKAGE_DIR = Path(__file__).parents[1]
 
@@ -71,9 +72,7 @@ class VersionCheckDBManager(BaseDBManager):
         # alembic adds significant import time, so we import it lazily
         from alembic import command
 
-        self.log.info(
-            "Attempting downgrade of Astronomer Version Check plugin migration to revision %s", to_revision
-        )
+        self.log.info("Attempting downgrade of Astronomer Version Check plugin migration to revision %s", to_revision)
         config = self.get_alembic_config()
 
         if show_sql_only:

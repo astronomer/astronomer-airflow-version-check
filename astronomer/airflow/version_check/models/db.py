@@ -1,21 +1,22 @@
 from __future__ import annotations
 
-import os
 import logging
+import os
 import threading
 from typing import TYPE_CHECKING
 
 import sqlalchemy.ext
+from airflow.models.base import _get_schema, naming_convention
+from airflow.utils.net import get_hostname
+from airflow.utils.session import create_session
+from airflow.utils.sqlalchemy import UtcDateTime
+from airflow.utils.timezone import utcnow
 from sqlalchemy import Boolean, Column, Index, MetaData, String, Text, or_
 from sqlalchemy.orm import declarative_base
-from airflow.models.base import _get_schema, naming_convention
-from airflow.utils.session import create_session
-from airflow.utils.net import get_hostname
-from airflow.utils.timezone import utcnow
-from airflow.utils.sqlalchemy import UtcDateTime
 
 if TYPE_CHECKING:
     from datetime import timedelta
+
     from sqlalchemy.orm import Session
 
 

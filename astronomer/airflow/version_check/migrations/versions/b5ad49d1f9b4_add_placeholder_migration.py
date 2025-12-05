@@ -11,7 +11,7 @@ the tables not being migrated.
 """
 
 # revision identifiers, used by Alembic.
-revision = 'b5ad49d1f9b4'
+revision = "b5ad49d1f9b4"
 down_revision = None
 branch_labels = None
 depends_on = None

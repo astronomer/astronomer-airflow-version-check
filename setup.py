@@ -14,7 +14,7 @@
 import os
 import re
 
-from setuptools import find_namespace_packages, setup, Command
+from setuptools import Command, find_namespace_packages, setup
 
 
 def fpath(*parts):
@@ -26,14 +26,14 @@ def read(*parts):
 
 
 def desc():
-    return read('README.md')
+    return read("README.md")
 
 
 # Cribbed from https://circleci.com/blog/continuously-deploying-python-packages-to-pypi-with-circleci/
 class VerifyVersionCommand(Command):
     """Custom command to verify that the git tag matches our version"""
 
-    description = 'verify that the git tag matches our version'
+    description = "verify that the git tag matches our version"
     user_options = []
 
     def initialize_options(self):
@@ -43,7 +43,7 @@ class VerifyVersionCommand(Command):
         pass
 
     def run(self):
-        tag = os.getenv('CIRCLE_TAG')
+        tag = os.getenv("CIRCLE_TAG")
 
         if tag != "v" + VERSION:
             info = f"Git tag: {tag} does not match the version of this app: v{VERSION}"
@@ -59,61 +59,61 @@ def find_version(*paths):
     raise RuntimeError("Unable to find version string.")
 
 
-VERSION = find_version('astronomer', 'airflow', 'version_check', 'plugin.py')
+VERSION = find_version("astronomer", "airflow", "version_check", "plugin.py")
 
 setup(
-    name='astronomer-airflow-version-check',
+    name="astronomer-airflow-version-check",
     version=VERSION,
-    url='https://github.com/astronomer/astronomer-airflow-version-check',
-    license='Apache2',
-    author='astronomerio',
-    author_email='humans@astronomer.io',
-    description='Periodically check for new releases of Astronomer Certified Airflow',
+    url="https://github.com/astronomer/astronomer-airflow-version-check",
+    license="Apache2",
+    author="astronomerio",
+    author_email="humans@astronomer.io",
+    description="Periodically check for new releases of Astronomer Certified Airflow",
     long_description=desc(),
     long_description_content_type="text/markdown",
-    packages=find_namespace_packages(include=('astronomer', 'astronomer.*')),
+    packages=find_namespace_packages(include=("astronomer", "astronomer.*")),
     package_data={
-        '': ['LICENSE'],
-        'astronomer.airflow.version_check.templates': ['*'],
-        'astronomer.airflow.version_check.static': ['*'],
+        "": ["LICENSE"],
+        "astronomer.airflow.version_check.templates": ["*"],
+        "astronomer.airflow.version_check.static": ["*"],
     },
-    namespace_packages=['astronomer', 'astronomer.airflow'],
+    namespace_packages=["astronomer", "astronomer.airflow"],
     include_package_data=True,
     zip_safe=True,
-    platforms='any',
+    platforms="any",
     entry_points={
-        'airflow.plugins': [
-            'astronomer_version_check=astronomer.airflow.version_check.plugin:AstronomerVersionCheckPlugin'
+        "airflow.plugins": [
+            "astronomer_version_check=astronomer.airflow.version_check.plugin:AstronomerVersionCheckPlugin"
         ]
     },
     install_requires=[
-        'distro~=1.5',
-        'lazy_object_proxy~=1.3',
-        'packaging>=20.0',
+        "distro~=1.5",
+        "lazy_object_proxy~=1.3",
+        "packaging>=20.0",
         'importlib_metadata;python_version<"3.9"',
-        'semver~=3.0.0',
+        "semver~=3.0.0",
     ],
-    setup_requires=['pytest-runner'],
+    setup_requires=["pytest-runner"],
     tests_require=[
-        'astronomer-airflow-version-check[test]',
+        "astronomer-airflow-version-check[test]",
     ],
     extras_require={
-        'test': [
-            'pytest',
-            'pytest-flask',
-            'pytest-mock',
-            'pytest-flake8',
+        "test": [
+            "pytest",
+            "pytest-flask",
+            "pytest-mock",
+            "pytest-flake8",
         ],
     },
     classifiers=[
-        'Environment :: Web Environment',
-        'Intended Audience :: Developers',
-        'License :: OSI Approved :: Apache License',
-        'Operating System :: OS Independent',
-        'Programming Language :: Python',
-        'Topic :: Software Development :: Libraries :: Python Modules',
-        'Programming Language :: Python :: 3',
+        "Environment :: Web Environment",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: Apache License",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+        "Programming Language :: Python :: 3",
     ],
-    python_requires='>=3.5.3',
+    python_requires=">=3.5.3",
     cmdclass={"verify": VerifyVersionCommand},
 )

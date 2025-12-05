@@ -6,11 +6,11 @@ def test_plugin_registered():
     plugins_manager.ensure_plugins_loaded()
     plugins = plugins_manager.plugins
     assert len(plugins) > 0
-    assert 'astronomer_version_check' in [plugin.name for plugin in plugins]
+    assert "astronomer_version_check" in [plugin.name for plugin in plugins]
 
 
 def test_logged_in(test_client):
-    response = test_client.get('api/v2/dags')
+    response = test_client.get("api/v2/dags")
     assert response.status_code == 200
 
 
@@ -29,7 +29,7 @@ def test_table_created(caplog, monkeypatch):
     monkeypatch.delenv("AIRFLOW__DATABASE__EXTERNAL_DB_MANAGERS", raising=False)
     caplog.clear()
     resetdb()
-    assert 'Creating VersionCheckDBManager tables from the ORM' not in caplog.text
+    assert "Creating VersionCheckDBManager tables from the ORM" not in caplog.text
 
     # Test 2: With EXTERNAL_DB_MANAGERS - tables SHOULD be created
     monkeypatch.setenv(
@@ -38,4 +38,4 @@ def test_table_created(caplog, monkeypatch):
     )
     caplog.clear()
     resetdb()
-    assert 'Creating VersionCheckDBManager tables from the ORM' in caplog.text
+    assert "Creating VersionCheckDBManager tables from the ORM" in caplog.text

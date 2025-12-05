@@ -4,9 +4,9 @@ import contextlib
 from logging import getLogger
 from logging.config import fileConfig
 
+from airflow import settings
 from alembic import context
 
-from airflow import settings
 from astronomer.airflow.version_check.models.manager import VersionCheckDBManager
 
 # this is the Alembic Config object, which provides
