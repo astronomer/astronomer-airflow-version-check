@@ -230,8 +230,11 @@ def test_plugin_table_created(session):
     from airflow.cli.commands.standalone_command import standalone
     from sqlalchemy import inspect
 
+    from astronomer.airflow.version_check.models.db import AstronomerVersionCheck
+
     engine = session.get_bind(mapper=None, clause=None)
     inspector = inspect(engine)
+    table_name = AstronomerVersionCheck.__tablename__
     with mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": "5.0.0"}):
         thread = threading.Thread(target=standalone, args=("webserver",))
         thread.daemon = True
@@ -240,7 +243,7 @@ def test_plugin_table_created(session):
             if inspector.has_table("task_instance"):
                 break
         for _ in range(10):
-            x = inspector.has_table("astro_version_check")
+            x = inspector.has_table(table_name)
         assert x
         thread.join(timeout=1)
 
