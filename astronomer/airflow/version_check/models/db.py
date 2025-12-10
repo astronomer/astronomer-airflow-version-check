@@ -26,24 +26,8 @@ metadata = MetaData(schema=_get_schema(), naming_convention=naming_convention)
 Base = declarative_base(metadata=metadata)
 
 
-def _get_table_name(base_name: str) -> str:
-    """
-    Get the appropriate table name based on Airflow version.
-
-    For Airflow 3+, we use new table names to avoid migration complexity
-    and downgrade issues. For Airflow 2, we use the original table names.
-
-    :param base_name: Base table name (e.g., "astro_version_check")
-    """
-    from astronomer.airflow.version_check.version_compat import AIRFLOW_V_3_0_PLUS
-
-    if AIRFLOW_V_3_0_PLUS:
-        return f"{base_name}_v3"
-    return base_name
-
-
 class AstronomerVersionCheck(Base):
-    __tablename__ = _get_table_name("astro_version_check")
+    __tablename__ = "astro_version_check_v3"
     singleton = Column(Boolean, default=True, nullable=False, primary_key=True)
 
     # For information only
@@ -116,7 +100,7 @@ class AstronomerVersionCheck(Base):
 
 
 class AstronomerAvailableVersion(Base):
-    __tablename__ = _get_table_name("astro_available_version")
+    __tablename__ = "astro_available_version_v3"
     version = Column(Text().with_variant(String(255), "mysql"), nullable=False, primary_key=True)
     level = Column(Text, nullable=False)
     date_released = Column(UtcDateTime(timezone=True), nullable=False)
@@ -128,4 +112,4 @@ class AstronomerAvailableVersion(Base):
     eos_dismissed_until = Column(UtcDateTime(timezone=True), nullable=True)
     yanked = Column(Boolean, default=False, nullable=True)
 
-    __table_args__ = (Index(f"idx_{_get_table_name('astro_available_version')}_hidden", hidden_from_ui),)
+    __table_args__ = (Index("idx_astro_available_version_v3_hidden", hidden_from_ui),)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import sqlalchemy as sa
 from airflow import settings
 from airflow.exceptions import AirflowException
 from airflow.utils.db import _offline_migration, print_happy_cat
@@ -27,6 +28,17 @@ class VersionCheckDBManager(BaseDBManager):
 
     def create_db_from_orm(self):
         super().create_db_from_orm()
+        # Drop old Airflow 2 tables if they exist
+        # This is needed because migrations aren't run when the db is initially
+        # "migrated" (it calls create_db_from_orm), which includes when we are
+        # doing the first migrations with the db manager on Airflow 3.
+        with settings.engine.connect() as connection:
+            inspector = sa.inspect(connection)
+            old_tables = ["astro_available_version", "astro_version_check"]
+            for table_name in old_tables:
+                if inspector.has_table(table_name):
+                    connection.execute(sa.text(f"DROP TABLE IF EXISTS {table_name}"))
+            connection.commit()
 
     def upgradedb(self, to_revision=None, from_revision=None, show_sql_only=False):
         """Upgrade the database."""

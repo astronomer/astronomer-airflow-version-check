@@ -24,56 +24,40 @@ from alembic import op  # noqa: E402
 
 def upgrade() -> None:
     """
-    Create new Airflow 3 tables and drop old Airflow 2 tables.
+    Create new Airflow 3 tables with updated schema.
 
-    For Airflow 3+, we use new table names (with _v3 suffix) to avoid
-    migration complexity. The old Airflow 2 tables are dropped since
-    we don't support downgrades of external DB managers.
+    This migration creates tables with _v3 suffix and the new schema
+    (end_of_maintenance and end_of_basic_support instead of end_of_support).
+    The old Airflow 2 tables are dropped in create_db_from_orm().
     """
-    from astronomer.airflow.version_check.version_compat import AIRFLOW_V_3_0_PLUS
+    op.create_table(
+        "astro_version_check_v3",
+        sa.Column("singleton", sa.Boolean(), nullable=False),
+        sa.Column("last_checked", UtcDateTime(timezone=True), nullable=True),
+        sa.Column("last_checked_by", sa.Text(), nullable=True),
+        sa.PrimaryKeyConstraint("singleton"),
+        schema=None,
+    )
 
-    is_airflow3 = AIRFLOW_V_3_0_PLUS
+    op.create_table(
+        "astro_available_version_v3",
+        sa.Column("version", sa.Text().with_variant(sa.String(length=255), "mysql"), nullable=False),
+        sa.Column("level", sa.Text(), nullable=False),
+        sa.Column("date_released", UtcDateTime(timezone=True), nullable=False),
+        sa.Column("description", sa.Text(), nullable=True),
+        sa.Column("url", sa.Text(), nullable=True),
+        sa.Column("hidden_from_ui", sa.Boolean(), nullable=False, server_default="0"),
+        sa.Column("end_of_maintenance", UtcDateTime(timezone=True), nullable=True),
+        sa.Column("end_of_basic_support", UtcDateTime(timezone=True), nullable=True),
+        sa.Column("eos_dismissed_until", UtcDateTime(timezone=True), nullable=True),
+        sa.Column("yanked", sa.Boolean(), nullable=True, server_default="0"),
+        sa.PrimaryKeyConstraint("version"),
+        schema=None,
+    )
 
-    connection = op.get_bind()
-    inspector = sa.inspect(connection)
-
-    if is_airflow3:
-        if not inspector.has_table("astro_version_check_v3"):
-            op.create_table(
-                "astro_version_check_v3",
-                sa.Column("singleton", sa.Boolean(), nullable=False),
-                sa.Column("last_checked", UtcDateTime(timezone=True), nullable=True),
-                sa.Column("last_checked_by", sa.Text(), nullable=True),
-                sa.PrimaryKeyConstraint("singleton"),
-                schema=None,
-            )
-
-        if not inspector.has_table("astro_available_version_v3"):
-            op.create_table(
-                "astro_available_version_v3",
-                sa.Column("version", sa.Text().with_variant(sa.String(length=255), "mysql"), nullable=False),
-                sa.Column("level", sa.Text(), nullable=False),
-                sa.Column("date_released", UtcDateTime(timezone=True), nullable=False),
-                sa.Column("description", sa.Text(), nullable=True),
-                sa.Column("url", sa.Text(), nullable=True),
-                sa.Column("hidden_from_ui", sa.Boolean(), nullable=False, server_default="0"),
-                sa.Column("end_of_maintenance", UtcDateTime(timezone=True), nullable=True),
-                sa.Column("end_of_basic_support", UtcDateTime(timezone=True), nullable=True),
-                sa.Column("eos_dismissed_until", UtcDateTime(timezone=True), nullable=True),
-                sa.Column("yanked", sa.Boolean(), nullable=True, server_default="0"),
-                sa.PrimaryKeyConstraint("version"),
-                schema=None,
-            )
-
-            op.create_index(
-                "idx_astro_available_version_v3_hidden", "astro_available_version_v3", ["hidden_from_ui"], unique=False
-            )
-
-        # Drop old Airflow 2 tables if they exist
-        if inspector.has_table("astro_available_version"):
-            op.drop_table("astro_available_version")
-        if inspector.has_table("astro_version_check"):
-            op.drop_table("astro_version_check")
+    op.create_index(
+        "idx_astro_available_version_v3_hidden", "astro_available_version_v3", ["hidden_from_ui"], unique=False
+    )
 
 
 def downgrade() -> None:
