@@ -27,7 +27,7 @@ Base = declarative_base(metadata=metadata)
 
 
 class AstronomerVersionCheck(Base):
-    __tablename__ = "astro_version_check"
+    __tablename__ = "astro_version_check_v3"
     singleton = Column(Boolean, default=True, nullable=False, primary_key=True)
 
     # For information only
@@ -100,15 +100,16 @@ class AstronomerVersionCheck(Base):
 
 
 class AstronomerAvailableVersion(Base):
-    __tablename__ = "astro_available_version"
+    __tablename__ = "astro_available_version_v3"
     version = Column(Text().with_variant(String(255), "mysql"), nullable=False, primary_key=True)
     level = Column(Text, nullable=False)
     date_released = Column(UtcDateTime(timezone=True), nullable=False)
     description = Column(Text)
     url = Column(Text)
     hidden_from_ui = Column(Boolean, default=False, nullable=False)
-    end_of_support = Column(UtcDateTime(timezone=True), nullable=True)
+    end_of_maintenance = Column(UtcDateTime(timezone=True), nullable=True)
+    end_of_basic_support = Column(UtcDateTime(timezone=True), nullable=True)
     eos_dismissed_until = Column(UtcDateTime(timezone=True), nullable=True)
     yanked = Column(Boolean, default=False, nullable=True)
 
-    __table_args__ = (Index("idx_astro_available_version_hidden", hidden_from_ui),)
+    __table_args__ = (Index("idx_astro_available_version_v3_hidden", hidden_from_ui),)
