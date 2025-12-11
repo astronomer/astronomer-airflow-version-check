@@ -1,4 +1,20 @@
+import os
+import tomllib
+from pathlib import Path
+
+import pytest
 from airflow import plugins_manager
+
+
+@pytest.mark.skipif(os.getenv("CIRCLE_TAG") is None, reason="CIRCLE_TAG is not set")
+def test_version_matches_tag():
+    tag = os.getenv("CIRCLE_TAG")
+
+    pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
+    version = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))["project"]["version"]
+
+    expected = f"v{version}"
+    assert tag == expected, f"Git tag {tag} does not match version {expected}"
 
 
 def test_plugin_registered():

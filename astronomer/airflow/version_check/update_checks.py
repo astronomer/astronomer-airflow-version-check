@@ -9,9 +9,10 @@ import re
 import sys
 import threading
 import time
+from collections.abc import Callable, Sequence
 from datetime import timedelta
 from functools import wraps
-from typing import Any, Callable, Sequence, TypeVar, cast
+from typing import Any, TypeVar, cast
 
 import distro
 import pendulum
@@ -502,7 +503,7 @@ def get_user_string_data():
         distro_infos = dict(
             filter(
                 lambda x: x[1],
-                zip(["name", "version", "id"], (distro.name(), distro.version(), distro.id())),
+                zip(["name", "version", "id"], (distro.name(), distro.version(), distro.id()), strict=True),
             )
         )
         if distro_infos:
