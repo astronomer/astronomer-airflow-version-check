@@ -12,11 +12,6 @@ from astronomer.airflow.version_check.update_checks import (
 )
 
 
-@pytest.fixture(autouse=True)
-def mock_test_env(monkeypatch):
-    monkeypatch.setenv("AIRFLOW__ASTRONOMER__UPDATE_URL", "https://updates.astronomer.io/astronomer-runtime")
-
-
 @pytest.mark.parametrize("image_version, new_patch_version", [("3.0-1", "3.0-2")])
 @mock.patch.object(CheckThread, "_convert_runtime_versions")
 def test_update_check_for_image_with_newer_patch(
