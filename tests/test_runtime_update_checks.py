@@ -244,15 +244,16 @@ def test_plugin_table_created(session):
 
 
 @pytest.mark.parametrize(
-    "image_version, eol_days_offset, expected_level, expected_days_to_eol",
+    "image_version, eom_days_offset, expected_level, expected_days_remaining",
     [("3.0-1", 10, "warning", 10), ("3.0-1", -1, "critical", -1)],
 )
-def test_days_to_eol_warning_and_critical(
-    session, image_version, eol_days_offset, expected_level, expected_days_to_eol
+def test_days_to_eom_warning_and_critical(
+    session, image_version, eom_days_offset, expected_level, expected_days_remaining
 ):
+    """Test End of Maintenance (EOM) warnings at different day offsets."""
     from airflow.utils.db import resetdb
 
-    end_of_maintenance_date = utcnow() + timedelta(days=eol_days_offset)
+    end_of_maintenance_date = utcnow() + timedelta(days=eom_days_offset)
     with mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
         resetdb()
         vc = AstronomerVersionCheck(singleton=True)
@@ -272,10 +273,117 @@ def test_days_to_eol_warning_and_critical(
         session.commit()
 
         helper = UpdateAvailableHelper()
-        result = helper.available_eol()
+        result = helper.available_eom()
 
-        assert abs(result["days_to_eol"] - expected_days_to_eol) <= 1
+        assert result is not None
+        assert abs(result["days_remaining"] - expected_days_remaining) <= 1
         assert result["level"] == expected_level
+        assert result["type"] == "eom"
+
+
+@pytest.mark.parametrize(
+    "image_version, eobs_days_offset, expected_level, expected_days_remaining",
+    [("3.0-1", 10, "warning", 10), ("3.0-1", -1, "critical", -1)],
+)
+def test_days_to_eobs_warning_and_critical(
+    session, image_version, eobs_days_offset, expected_level, expected_days_remaining
+):
+    """Test End of Basic Support (EOBS) warnings at different day offsets."""
+    from airflow.utils.db import resetdb
+
+    end_of_basic_support_date = utcnow() + timedelta(days=eobs_days_offset)
+    with mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
+        resetdb()
+        vc = AstronomerVersionCheck(singleton=True)
+        session.add(vc)
+        session.commit()
+
+        av = AstronomerAvailableVersion(
+            version=image_version,
+            level="",
+            date_released=utcnow() - timedelta(days=100),
+            description="",
+            url="",
+            hidden_from_ui=False,
+            end_of_basic_support=end_of_basic_support_date,
+        )
+        session.add(av)
+        session.commit()
+
+        helper = UpdateAvailableHelper()
+        result = helper.available_eobs()
+
+        assert result is not None
+        assert abs(result["days_remaining"] - expected_days_remaining) <= 1
+        assert result["level"] == expected_level
+        assert result["type"] == "eobs"
+
+
+def test_priority_warning_yanked_takes_precedence(session):
+    """Test that yanked warning takes precedence over EOM and EOBS."""
+    from airflow.utils.db import resetdb
+
+    image_version = "3.0-1"
+    with mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
+        resetdb()
+        vc = AstronomerVersionCheck(singleton=True)
+        session.add(vc)
+        session.commit()
+
+        # Create a version that is yanked AND has EOM/EOBS warnings
+        av = AstronomerAvailableVersion(
+            version=image_version,
+            level="",
+            date_released=utcnow() - timedelta(days=100),
+            description="",
+            url="",
+            hidden_from_ui=False,
+            end_of_maintenance=utcnow() + timedelta(days=5),
+            end_of_basic_support=utcnow() + timedelta(days=10),
+            yanked=True,
+        )
+        session.add(av)
+        session.commit()
+
+        helper = UpdateAvailableHelper()
+        result = helper.get_priority_warning()
+
+        assert result is not None
+        assert result["type"] == "yanked"
+        assert result["level"] == "critical"
+
+
+def test_priority_warning_eobs_over_eom(session):
+    """Test that EOBS warning takes precedence over EOM warning."""
+    from airflow.utils.db import resetdb
+
+    image_version = "3.0-1"
+    with mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
+        resetdb()
+        vc = AstronomerVersionCheck(singleton=True)
+        session.add(vc)
+        session.commit()
+
+        # Create a version with both EOM and EOBS warnings active
+        av = AstronomerAvailableVersion(
+            version=image_version,
+            level="",
+            date_released=utcnow() - timedelta(days=100),
+            description="",
+            url="",
+            hidden_from_ui=False,
+            end_of_maintenance=utcnow() + timedelta(days=5),
+            end_of_basic_support=utcnow() + timedelta(days=10),
+            yanked=False,
+        )
+        session.add(av)
+        session.commit()
+
+        helper = UpdateAvailableHelper()
+        result = helper.get_priority_warning()
+
+        assert result is not None
+        assert result["type"] == "eobs"
 
 
 @pytest.mark.parametrize(
