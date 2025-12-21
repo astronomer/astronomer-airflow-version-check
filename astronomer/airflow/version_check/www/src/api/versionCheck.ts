@@ -70,4 +70,3 @@ export const dismissEobsWarning = async (): Promise<DismissResponse> => {
   const response = await api.post<DismissResponse>("/dismiss/eobs");
   return response.data;
 };
-

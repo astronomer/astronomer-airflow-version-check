@@ -75,4 +75,3 @@ const PluginComponent: FC<PluginComponentProps> = () => {
 };
 
 export default PluginComponent;
-

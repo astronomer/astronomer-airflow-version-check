@@ -137,4 +137,3 @@ def dismiss_eobs_warning(session: SessionDep) -> DismissResponse:
         dismissed_until=dismissed_until,
         message=f"EOBS warning dismissed until {dismissed_until.strftime('%Y-%m-%d')}.",
     )
-

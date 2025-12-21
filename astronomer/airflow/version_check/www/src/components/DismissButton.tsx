@@ -66,4 +66,3 @@ export const DismissButton: FC<DismissButtonProps> = ({ warningType, onDismissed
     </Button>
   );
 };
-

@@ -27,4 +27,3 @@ createRoot(document.querySelector("#root") as HTMLDivElement).render(
     <PluginComponent />
   </StrictMode>,
 );
-

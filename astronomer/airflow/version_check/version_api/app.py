@@ -45,4 +45,3 @@ def create_version_check_api_app() -> FastAPI:
         )
 
     return app
-

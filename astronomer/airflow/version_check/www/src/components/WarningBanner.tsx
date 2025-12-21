@@ -86,4 +86,3 @@ export const WarningBanner: FC<WarningBannerProps> = ({ warning }) => {
     </Alert.Root>
   );
 };
-
