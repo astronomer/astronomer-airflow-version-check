@@ -18,7 +18,7 @@
  */
 import { Alert, Box, Flex, HStack, Text } from "@chakra-ui/react";
 import { FC } from "react";
-import { LuAlertTriangle, LuAlertCircle, LuShieldAlert } from "react-icons/lu";
+import { LuTriangleAlert, LuCircleAlert, LuShieldAlert } from "react-icons/lu";
 
 import { VersionWarning } from "src/api/versionCheck";
 import { DismissButton } from "./DismissButton";
@@ -45,9 +45,9 @@ const getWarningIcon = (type: VersionWarning["type"], level: VersionWarning["lev
     return <LuShieldAlert size={20} />;
   }
   if (level === "critical") {
-    return <LuAlertCircle size={20} />;
+    return <LuCircleAlert size={20} />;
   }
-  return <LuAlertTriangle size={20} />;
+  return <LuTriangleAlert size={20} />;
 };
 
 export const WarningBanner: FC<WarningBannerProps> = ({ warning }) => {
