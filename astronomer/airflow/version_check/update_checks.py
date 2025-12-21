@@ -359,39 +359,79 @@ class CheckThread(threading.Thread, LoggingMixin):
 
 class UpdateAvailableHelper(LoggingMixin):
     def __init__(self):
-        from .plugin import dismissal_period_days, eol_warning_threshold_days
+        from .plugin import (
+            eobs_dismissal_period_days,
+            eobs_warning_threshold_days,
+            eom_dismissal_period_days,
+            eom_warning_threshold_days,
+        )
 
-        self.eol_warning_threshold_days = eol_warning_threshold_days
-        self.dismissal_period_days = dismissal_period_days
+        self.eom_warning_threshold_days = eom_warning_threshold_days
+        self.eom_dismissal_period_days = eom_dismissal_period_days
+        self.eobs_warning_threshold_days = eobs_warning_threshold_days
+        self.eobs_dismissal_period_days = eobs_dismissal_period_days
 
-    def get_eol_notice(self, current_version) -> dict[str, Any] | None:
+    def get_eom_notice(self, current_version) -> dict[str, Any] | None:
         """
-        Get the EOL notice information if the current version is near or past its end of maintenance.
+        Get the End of Maintenance (EOM) notice if the current version is near or past its EOM date.
 
         :param current_version: The current runtime version information.
         """
         if current_version and current_version.end_of_maintenance:
             now = utcnow()
-            days_to_eol = (current_version.end_of_maintenance - now).days
-            if days_to_eol <= self.eol_warning_threshold_days:
-                if not current_version.eos_dismissed_until or now > current_version.eos_dismissed_until:
-                    eol_level = "critical" if days_to_eol <= 0 else "warning"
+            days_to_eom = (current_version.end_of_maintenance - now).days
+            if days_to_eom <= self.eom_warning_threshold_days:
+                if not current_version.eom_dismissed_until or now > current_version.eom_dismissed_until:
+                    level = "critical" if days_to_eom <= 0 else "warning"
                     description = "{} version {} {}.".format(
                         "Astronomer Runtime",
                         current_version.version,
                         (
                             "has reached its end of maintenance"
-                            if days_to_eol <= 0
-                            else f"will reach its end of maintenance in {days_to_eol} days"
+                            if days_to_eom <= 0
+                            else f"will reach its end of maintenance in {days_to_eom} days"
                         ),
                     )
                     return {
-                        "level": eol_level,
+                        "type": "eom",
+                        "level": level,
                         "version": current_version.version,
                         "app_name": "Astronomer Runtime",
-                        "days_to_eol": days_to_eol,
+                        "days_remaining": days_to_eom,
                         "description": description,
-                        "dismissed_until": current_version.eos_dismissed_until,
+                        "dismissed_until": current_version.eom_dismissed_until,
+                    }
+        return None
+
+    def get_eobs_notice(self, current_version) -> dict[str, Any] | None:
+        """
+        Get the End of Basic Support (EOBS) notice if the current version is near or past its EOBS date.
+
+        :param current_version: The current runtime version information.
+        """
+        if current_version and current_version.end_of_basic_support:
+            now = utcnow()
+            days_to_eobs = (current_version.end_of_basic_support - now).days
+            if days_to_eobs <= self.eobs_warning_threshold_days:
+                if not current_version.eobs_dismissed_until or now > current_version.eobs_dismissed_until:
+                    level = "critical" if days_to_eobs <= 0 else "warning"
+                    description = "{} version {} {}.".format(
+                        "Astronomer Runtime",
+                        current_version.version,
+                        (
+                            "has reached its end of basic support"
+                            if days_to_eobs <= 0
+                            else f"will reach its end of basic support in {days_to_eobs} days"
+                        ),
+                    )
+                    return {
+                        "type": "eobs",
+                        "level": level,
+                        "version": current_version.version,
+                        "app_name": "Astronomer Runtime",
+                        "days_remaining": days_to_eobs,
+                        "description": description,
+                        "dismissed_until": current_version.eobs_dismissed_until,
                     }
         return None
 
@@ -440,13 +480,13 @@ class UpdateAvailableHelper(LoggingMixin):
 
         return None
 
-    def available_eol(self) -> dict[str, Any] | None:
-        """Check if there is an EOL notice for the current version of Astronomer Runtime."""
+    def available_eom(self) -> dict[str, Any] | None:
+        """Check if there is an End of Maintenance (EOM) notice for the current version."""
         from astronomer.airflow.version_check.models.db import AstronomerAvailableVersion
 
-        from .plugin import eol_warning_opt_out
+        from .plugin import eom_warning_opt_out
 
-        if eol_warning_opt_out:
+        if eom_warning_opt_out:
             return None
 
         with create_session() as session:
@@ -456,9 +496,93 @@ class UpdateAvailableHelper(LoggingMixin):
                 .filter(AstronomerAvailableVersion.version == str(runtime_version))
                 .one_or_none()
             )
-            return self.get_eol_notice(current_version)
+            return self.get_eom_notice(current_version)
 
-    def available_yanked(self) -> dict[str, Any] | None:
+    def available_eobs(self) -> dict[str, Any] | None:
+        """Check if there is an End of Basic Support (EOBS) notice for the current version."""
+        from astronomer.airflow.version_check.models.db import AstronomerAvailableVersion
+
+        from .plugin import eobs_warning_opt_out
+
+        if eobs_warning_opt_out:
+            return None
+
+        with create_session() as session:
+            runtime_version = get_runtime_version()
+            current_version = (
+                session.query(AstronomerAvailableVersion)
+                .filter(AstronomerAvailableVersion.version == str(runtime_version))
+                .one_or_none()
+            )
+            return self.get_eobs_notice(current_version)
+
+    def get_priority_warning(
+        self,
+        current_version=None,
+        eom_opt_out: bool | None = None,
+        eobs_opt_out: bool | None = None,
+    ) -> dict[str, Any] | None:
+        """
+        Get the highest priority warning for the current version.
+
+        Priority order (highest to lowest):
+        1. Yanked version (critical)
+        2. End of Basic Support (EOBS) warning
+        3. End of Maintenance (EOM) warning
+
+        :param current_version: Optional AstronomerAvailableVersion object. If not provided,
+            it will be fetched from the database.
+        :param eom_opt_out: Optional override for EOM opt-out setting. If None, uses config.
+        :param eobs_opt_out: Optional override for EOBS opt-out setting. If None, uses config.
+        """
+        from astronomer.airflow.version_check.models.db import AstronomerAvailableVersion
+
+        from .plugin import eobs_warning_opt_out as config_eobs_opt_out
+        from .plugin import eom_warning_opt_out as config_eom_opt_out
+
+        eom_opt_out = eom_opt_out if eom_opt_out is not None else config_eom_opt_out
+        eobs_opt_out = eobs_opt_out if eobs_opt_out is not None else config_eobs_opt_out
+
+        if current_version is None:
+            with create_session() as session:
+                runtime_version = get_runtime_version()
+                current_version = (
+                    session.query(AstronomerAvailableVersion)
+                    .filter(AstronomerAvailableVersion.version == str(runtime_version))
+                    .one_or_none()
+                )
+
+        if not current_version:
+            return None
+
+        if current_version.yanked:
+            return {
+                "type": "yanked",
+                "level": "critical",
+                "message": (
+                    f"Warning: Astronomer Runtime version {current_version.version} has been yanked. "
+                    "We strongly recommend upgrading to a more recent supported version."
+                ),
+                "can_dismiss": False,
+            }
+
+        if not eobs_opt_out:
+            eobs = self.get_eobs_notice(current_version)
+            if eobs:
+                eobs["can_dismiss"] = True
+                eobs["message"] = eobs["description"]
+                return eobs
+
+        if not eom_opt_out:
+            eom = self.get_eom_notice(current_version)
+            if eom:
+                eom["can_dismiss"] = True
+                eom["message"] = eom["description"]
+                return eom
+
+        return None
+
+    def available_yanked(self) -> str | None:
         """Check if the current version of Astronomer Runtime is yanked."""
         from astronomer.airflow.version_check.models.db import AstronomerAvailableVersion
 
@@ -475,7 +599,7 @@ class UpdateAvailableHelper(LoggingMixin):
 
             if current_version and current_version.yanked:
                 return (
-                    f"Warning: This version of Astronomer Runtime, {runtime_version}, has been yanked. "
+                    f"Warning: Astronomer Runtime version {runtime_version} has been yanked. "
                     "We strongly recommend upgrading to a more recent supported version."
                 )
 
