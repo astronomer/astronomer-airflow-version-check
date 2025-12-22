@@ -1,7 +1,7 @@
 """Create Airflow 3 tables and drop Airflow 2 tables
 
 Revision ID: c7f8e9a2b3d4
-Revises:
+Revises: b5ad49d1f9b4
 Create Date: 2025-12-05 14:08:59.000000
 
 This migration creates new tables for Airflow 3 with the updated schema
@@ -12,7 +12,7 @@ we don't support downgrades of external DB managers on Astro.
 
 # revision identifiers, used by Alembic.
 revision = "c7f8e9a2b3d4"
-down_revision = None
+down_revision = "b5ad49d1f9b4"
 branch_labels = None
 depends_on = None
 
