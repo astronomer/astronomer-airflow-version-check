@@ -21,7 +21,6 @@ from airflow.configuration import conf
 from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow.utils.session import create_session
 from airflow.utils.timezone import utcnow
-from flask import flash, g, redirect, render_template, request
 from requests.exceptions import HTTPError, SSLError
 from semver import Version as version
 from sqlalchemy import or_
@@ -34,6 +33,13 @@ T = TypeVar("T", bound=Callable)
 
 
 def has_access_(permissions: Sequence[tuple[str, str]]) -> Callable[[T], T]:
+    """
+    Fallback has_access decorator for Airflow 2 compatibility.
+    Only used when airflow.www.auth.has_access is not available.
+    """
+    # Lazy import Flask only when this function is actually used (Airflow 2 fallback)
+    from flask import flash, g, redirect, render_template, request
+
     method: str = permissions[0][0]
     resource_type: str = permissions[0][1]
 
