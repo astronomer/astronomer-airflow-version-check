@@ -9,8 +9,6 @@ from airflow.plugins_manager import AirflowPlugin
 from airflow.utils.session import create_session
 from sqlalchemy import inspect
 
-from astronomer.airflow.version_check.version_compat import AIRFLOW_V_3_0_PLUS
-
 __version__ = "3.0.0"
 
 log = logging.getLogger(__name__)
@@ -61,23 +59,18 @@ def _get_api_endpoint() -> dict:
 class AstronomerVersionCheckPlugin(AirflowPlugin):
     name = "astronomer_version_check"
 
-    # Register FastAPI app and React app only on API server and for Airflow 3.0+
-    if RUNNING_ON_APISERVER and AIRFLOW_V_3_0_PLUS:
-        fastapi_apps = [_get_api_endpoint()]
-
-        # React apps are only supported in Airflow 3.1+
+    # Register FastAPI app and React app only on API server (Airflow 3.1+ only)
+    if RUNNING_ON_APISERVER:
         try:
-            from astronomer.airflow.version_check.version_compat import get_base_airflow_version_tuple
-
-            if get_base_airflow_version_tuple() >= (3, 1, 0):
-                react_apps = [
-                    {
-                        "name": "Version Check",
-                        "bundle_url": _get_base_url_path("/version_check/static/main.umd.cjs"),
-                        "destination": "dashboard",
-                        "url_route": "version-check",
-                    },
-                ]
+            fastapi_apps = [_get_api_endpoint()]
+            react_apps = [
+                {
+                    "name": "Version Check",
+                    "bundle_url": _get_base_url_path("/version_check/static/main.umd.cjs"),
+                    "destination": "dashboard",
+                    "url_route": "version-check",
+                },
+            ]
         except Exception:
             pass
 
