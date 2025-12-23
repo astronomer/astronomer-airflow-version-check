@@ -37,6 +37,8 @@ export interface VersionStatus {
 
 export interface StatusResponse {
   status: VersionStatus;
+  eom_dismissal_period_days: number;
+  eobs_dismissal_period_days: number;
 }
 
 export interface DismissResponse {

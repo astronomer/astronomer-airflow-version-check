@@ -25,6 +25,8 @@ import { DismissButton } from "./DismissButton";
 
 interface WarningBannerProps {
   warning: VersionWarning;
+  eomDismissalPeriodDays: number;
+  eobsDismissalPeriodDays: number;
 }
 
 const getWarningTitle = (type: VersionWarning["type"]): string => {
@@ -50,10 +52,11 @@ const getWarningIcon = (type: VersionWarning["type"], level: VersionWarning["lev
   return <LuTriangleAlert size={20} />;
 };
 
-export const WarningBanner: FC<WarningBannerProps> = ({ warning }) => {
+export const WarningBanner: FC<WarningBannerProps> = ({ warning, eomDismissalPeriodDays, eobsDismissalPeriodDays }) => {
   const { type, level, message, can_dismiss } = warning;
   const title = getWarningTitle(type);
   const icon = getWarningIcon(type, level);
+  const dismissalPeriodDays = type === "eom" ? eomDismissalPeriodDays : eobsDismissalPeriodDays;
 
   // Map our warning levels to Chakra UI status
   const status = level === "critical" ? "error" : "warning";
@@ -80,7 +83,7 @@ export const WarningBanner: FC<WarningBannerProps> = ({ warning }) => {
           </Box>
         </HStack>
         {can_dismiss && (
-          <DismissButton warningType={type} />
+          <DismissButton warningType={type} dismissalPeriodDays={dismissalPeriodDays} />
         )}
       </Flex>
     </Alert.Root>

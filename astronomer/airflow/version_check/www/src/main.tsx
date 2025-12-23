@@ -47,7 +47,11 @@ const VersionCheckContent: FC = () => {
 
   return (
     <Box p={2}>
-      <WarningBanner warning={data.status.warning} />
+      <WarningBanner
+        warning={data.status.warning}
+        eomDismissalPeriodDays={data.eom_dismissal_period_days}
+        eobsDismissalPeriodDays={data.eobs_dismissal_period_days}
+      />
     </Box>
   );
 };

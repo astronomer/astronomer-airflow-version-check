@@ -25,10 +25,11 @@ import { dismissEobsWarning, dismissEomWarning, WarningType } from "src/api/vers
 
 interface DismissButtonProps {
   warningType: WarningType;
+  dismissalPeriodDays: number;
   onDismissed?: () => void;
 }
 
-export const DismissButton: FC<DismissButtonProps> = ({ warningType, onDismissed }) => {
+export const DismissButton: FC<DismissButtonProps> = ({ warningType, dismissalPeriodDays, onDismissed }) => {
   const queryClient = useQueryClient();
 
   const dismissMutation = useMutation({
@@ -59,7 +60,7 @@ export const DismissButton: FC<DismissButtonProps> = ({ warningType, onDismissed
       onClick={() => dismissMutation.mutate()}
       loading={dismissMutation.isPending}
       aria-label="Dismiss warning"
-      title="Dismiss warning for 7 days"
+      title={`Dismiss warning for ${dismissalPeriodDays} day${dismissalPeriodDays !== 1 ? "s" : ""}`}
     >
       <LuX />
       Dismiss

@@ -43,6 +43,8 @@ class StatusResponse(BaseModel):
     """Response from the status endpoint."""
 
     status: VersionStatus
+    eom_dismissal_period_days: int
+    eobs_dismissal_period_days: int
 
 
 class DismissRequest(BaseModel):

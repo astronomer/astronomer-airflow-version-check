@@ -135,11 +135,18 @@ def get_status(session: SessionDep) -> StatusResponse:
         eobs_opt_out=eobs_warning_opt_out,
     )
 
+    from astronomer.airflow.version_check.plugin import (
+        eobs_dismissal_period_days,
+        eom_dismissal_period_days,
+    )
+
     return StatusResponse(
         status=VersionStatus(
             current_version=runtime_version,
             warning=warning,
-        )
+        ),
+        eom_dismissal_period_days=eom_dismissal_period_days,
+        eobs_dismissal_period_days=eobs_dismissal_period_days,
     )
 
 
