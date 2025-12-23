@@ -92,7 +92,6 @@ export default defineConfig(({ command }) => {
       mockReset: true,
       passWithNoTests: true,
       restoreMocks: true,
-      setupFiles: "./testsSetup.ts",
     },
   };
 });
