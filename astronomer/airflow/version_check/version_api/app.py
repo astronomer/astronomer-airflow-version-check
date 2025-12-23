@@ -37,12 +37,4 @@ def create_version_check_api_app() -> FastAPI:
             name="version_check_static_files",
         )
 
-    www_res = PACKAGE_DIR / "www" / "src" / "res"
-    if www_res.exists():
-        app.mount(
-            "/res",
-            StaticFiles(directory=www_res.absolute(), html=True),
-            name="version_check_res_files",
-        )
-
     return app
