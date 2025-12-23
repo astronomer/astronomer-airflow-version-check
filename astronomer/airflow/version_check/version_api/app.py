@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from astronomer.airflow.version_check import plugin
 from astronomer.airflow.version_check.version_api.routes import ui_router
 
 PACKAGE_DIR = Path(__file__).parents[1]
@@ -20,7 +21,7 @@ def create_version_check_api_app() -> FastAPI:
             "checking version status, warnings (End of Maintenance, End of Basic Support, Yanked), "
             "and dismissing warnings."
         ),
-        version="1.0.0",
+        version=plugin.__version__,
     )
 
     app.include_router(ui_router, prefix="/ui")
