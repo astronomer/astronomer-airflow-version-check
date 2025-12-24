@@ -35,23 +35,35 @@ def test_anon(unauthorized_test_client):
     assert response.status_code == 403
 
 
-def test_table_created(caplog, monkeypatch):
+def test_table_created(monkeypatch):
     """
     Verify that the tables are created only when EXTERNAL_DB_MANAGERS is set.
     """
+    import sqlalchemy as sa
+    from airflow import settings
     from airflow.utils.db import resetdb
+
+    version_check_tables = ["astro_version_check_v3", "astro_available_version_v3"]
+
+    def tables_exist(tables: list[str]) -> bool:
+        with settings.engine.connect() as conn:
+            inspector = sa.inspect(conn)
+            return all(inspector.has_table(table) for table in tables)
+
+    # Clear the existing database
+    resetdb(skip_init=True)
 
     # Test 1: Without EXTERNAL_DB_MANAGERS - tables should NOT be created
     monkeypatch.delenv("AIRFLOW__DATABASE__EXTERNAL_DB_MANAGERS", raising=False)
-    caplog.clear()
     resetdb()
-    assert "Creating VersionCheckDBManager tables from the ORM" not in caplog.text
+    assert tables_exist(["dag"]), "Airflow dag table should exist"
+    assert not tables_exist(version_check_tables), "Tables should NOT exist without EXTERNAL_DB_MANAGERS"
 
     # Test 2: With EXTERNAL_DB_MANAGERS - tables SHOULD be created
     monkeypatch.setenv(
         "AIRFLOW__DATABASE__EXTERNAL_DB_MANAGERS",
         "astronomer.airflow.version_check.models.manager.VersionCheckDBManager",
     )
-    caplog.clear()
     resetdb()
-    assert "Creating VersionCheckDBManager tables from the ORM" in caplog.text
+    assert tables_exist(["dag"]), "Airflow dag table should exist"
+    assert tables_exist(version_check_tables), "Tables should exist with EXTERNAL_DB_MANAGERS"
