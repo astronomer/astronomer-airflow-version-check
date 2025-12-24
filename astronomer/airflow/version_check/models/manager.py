@@ -13,7 +13,7 @@ from astronomer.airflow.version_check.models.db import Base
 PACKAGE_DIR = Path(__file__).parents[1]
 
 _REVISION_HEADS_MAP: dict[str, str] = {
-    "3.1.0": "b5ad49d1f9b4",
+    "3.1.0": "c7f8e9a2b3d4",
 }
 
 
