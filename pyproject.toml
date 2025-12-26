@@ -7,7 +7,8 @@ name = "astronomer-airflow-version-check"
 version = "3.0.0"
 description = "Periodically check for new releases of Astronomer Runtime"
 readme = { file = "README.md", content-type = "text/markdown" }
-license = { file = "LICENSE" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "astronomerio", email = "humans@astronomer.io" }]
 requires-python = ">=3.11"
 classifiers = [
@@ -53,7 +54,13 @@ required-version = ">=0.9.17"
 [tool.uv.build-backend]
 module-root = ""
 module-name = "astronomer.airflow.version_check"
-source-exclude = ["/build", "/dist", "/astronomer_airflow_version_check.egg-info"]
+source-exclude = [
+    "/build",
+    "/dist",
+    "/astronomer_airflow_version_check.egg-info",
+    "/astronomer/airflow/version_check/alembic.ini",
+    "/astronomer/airflow/version_check/migrations/script.py.mako",
+]
 
 [tool.pytest.ini_options]
 addopts = "--tb=short"
