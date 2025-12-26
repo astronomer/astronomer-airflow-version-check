@@ -1,4 +1,4 @@
-"""Create Airflow 3 tables and drop Airflow 2 tables
+"""Create Airflow 3 tables
 
 Revision ID: c7f8e9a2b3d4
 Revises:
