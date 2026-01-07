@@ -58,6 +58,8 @@ variables prefixed with `AIRFLOW__ASTRONOMER__`.
 
   Sets the threshold (in days before EOM) for showing EOM warnings. The default is 30 days.
 
+  **Example:** If `eom_warning_threshold_days = 30`, the warning will start appearing when there are 30 days or fewer remaining until the End of Maintenance date.
+
 ### End of Basic Support (EOBS) Warning Settings
 
 - `eobs_warning_opt_out`
@@ -71,6 +73,32 @@ variables prefixed with `AIRFLOW__ASTRONOMER__`.
 - `eobs_warning_threshold_days`
 
   Sets the threshold (in days before EOBS) for showing EOBS warnings. The default is 30 days.
+
+  **Example:** If `eobs_warning_threshold_days = 30`, the warning will start appearing when there are 30 days or fewer remaining until the End of Basic Support date.
+
+## Understanding Warning Threshold vs Dismissal Period
+
+The difference between **warning threshold days** and **dismissal period days**:
+
+- **Warning Threshold Days** (`eom_warning_threshold_days`, `eobs_warning_threshold_days`):
+  - Determines **when** to start showing the warning
+  - Default: 30 days
+  - Example: If `eom_warning_threshold_days = 30`, the warning appears when there are 30 days or fewer until the End of Maintenance date
+
+- **Dismissal Period Days** (`eom_dismissal_period_days`, `eobs_dismissal_period_days`):
+  - Determines **how long** the warning stays hidden after a user dismisses it
+  - Default: 7 days
+  - Example: If `eom_dismissal_period_days = 7`, when a user dismisses the warning, it won't show again for 7 days
+
+**Complete Example:**
+- `eom_warning_threshold_days = 30`: Warning starts appearing 30 days before the End of Maintenance date
+- `eom_dismissal_period_days = 7`: When dismissed, the warning stays hidden for 7 days
+
+So if EOM is on January 31st and today is January 1st:
+- The warning appears (30 days remaining ≤ threshold)
+- User dismisses it on January 1st
+- Warning is hidden until January 8th (7 days later)
+- Warning reappears on January 8th if still within the threshold period
 
 ## API Endpoints
 
