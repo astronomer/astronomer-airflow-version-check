@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from airflow.api_fastapi.common.db.common import SessionDep
 from airflow.api_fastapi.common.router import AirflowRouter
+from airflow.api_fastapi.core_api.security import GetUserDep
 from airflow.utils.timezone import utcnow
 
 from astronomer.airflow.version_check.models.db import AstronomerAvailableVersion
@@ -116,7 +117,10 @@ def _get_priority_warning(
 
 
 @ui_router.get("/status")
-def get_status(session: SessionDep) -> StatusResponse:
+def get_status(
+    session: SessionDep,
+    _user: GetUserDep,
+) -> StatusResponse:
     """Get the current version status and any active warnings."""
     runtime_version = get_runtime_version()
 
@@ -147,7 +151,10 @@ def get_status(session: SessionDep) -> StatusResponse:
 
 
 @ui_router.post("/dismiss/eom")
-def dismiss_eom_warning(session: SessionDep) -> DismissResponse:
+def dismiss_eom_warning(
+    session: SessionDep,
+    _user: GetUserDep,
+) -> DismissResponse:
     """Dismiss the End of Maintenance (EOM) warning for the configured period."""
     runtime_version = get_runtime_version()
     if not runtime_version:
@@ -180,7 +187,10 @@ def dismiss_eom_warning(session: SessionDep) -> DismissResponse:
 
 
 @ui_router.post("/dismiss/eobs")
-def dismiss_eobs_warning(session: SessionDep) -> DismissResponse:
+def dismiss_eobs_warning(
+    session: SessionDep,
+    _user: GetUserDep,
+) -> DismissResponse:
     """Dismiss the End of Basic Support (EOBS) warning for the configured period."""
     runtime_version = get_runtime_version()
     if not runtime_version:
