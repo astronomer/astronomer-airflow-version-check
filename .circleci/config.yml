@@ -48,6 +48,24 @@ jobs:
           keys:
             - v1-prek-cache-{{ checksum "prek-cache-key.txt" }}
       - run:
+          name: Install Node.js and pnpm for pre-commit hooks
+          command: |
+            # Install Node.js (using nvm for version management)
+            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            nvm install 22
+            nvm use 22
+            # Install pnpm
+            npm install -g pnpm
+            # Install UI dependencies for linting
+            cd astronomer/airflow/version_check/www
+            pnpm install
+            # Make nvm and pnpm available to subsequent steps
+            echo 'export NVM_DIR="$HOME/.nvm"' >> $BASH_ENV
+            echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' >> $BASH_ENV
+            echo 'nvm use 22' >> $BASH_ENV
+      - run:
           command: |
             . .venv/bin/activate
             pip install prek
@@ -60,18 +78,8 @@ jobs:
           name: lint_ui
           command: |
             cd astronomer/airflow/version_check/www
-            # Install Node.js (using nvm for version management)
-            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            nvm install 22
-            nvm use 22
-            # Install pnpm if not available
-            if ! command -v pnpm &> /dev/null; then
-              npm install -g pnpm
-            fi
-            # Install dependencies and run linting
-            pnpm install
+            # Node.js and pnpm should already be installed from previous step
+            # Just run linting (dependencies should already be installed)
             pnpm run lint
       - run:
           name: build_wheel
