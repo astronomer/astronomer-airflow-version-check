@@ -32,3 +32,12 @@ repos:
       - id: ruff-check
         args: [ --fix ]
       - id: ruff-format
+  - repo: local
+    hooks:
+      - id: lint-ui
+        name: Lint UI (ESLint + TypeScript)
+        entry: bash -c 'cd astronomer/airflow/version_check/www && pnpm run lint'
+        language: system
+        types: [file]
+        files: ^astronomer/airflow/version_check/www/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false

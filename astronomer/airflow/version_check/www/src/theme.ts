@@ -18,21 +18,4 @@
  */
 import { createSystem, defaultConfig } from "@chakra-ui/react";
 
-export const system = createSystem(defaultConfig, {
-  theme: {
-    semanticTokens: {
-      colors: {
-        warning: {
-          bg: { value: { base: "#fef3c7", _dark: "#78350f" } },
-          border: { value: { base: "#f59e0b", _dark: "#fbbf24" } },
-          text: { value: { base: "#92400e", _dark: "#fef3c7" } },
-        },
-        critical: {
-          bg: { value: { base: "#fee2e2", _dark: "#7f1d1d" } },
-          border: { value: { base: "#ef4444", _dark: "#f87171" } },
-          text: { value: { base: "#991b1b", _dark: "#fee2e2" } },
-        },
-      },
-    },
-  },
-});
+export const system = createSystem(defaultConfig);

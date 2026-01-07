@@ -57,6 +57,23 @@ jobs:
           paths:
             - ~/.cache/prek
       - run:
+          name: lint_ui
+          command: |
+            cd astronomer/airflow/version_check/www
+            # Install Node.js (using nvm for version management)
+            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            nvm install 22
+            nvm use 22
+            # Install pnpm if not available
+            if ! command -v pnpm &> /dev/null; then
+              npm install -g pnpm
+            fi
+            # Install dependencies and run linting
+            pnpm install
+            pnpm run lint
+      - run:
           name: build_wheel
           command: |
             . .venv/bin/activate
