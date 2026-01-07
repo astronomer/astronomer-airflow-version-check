@@ -24,7 +24,7 @@ def create_version_check_api_app() -> FastAPI:
         version=plugin.__version__,
     )
 
-    app.include_router(ui_router, prefix="/ui")
+    app.include_router(ui_router)
 
     if ".cjs" not in mimetypes.suffix_map:
         mimetypes.add_type("application/javascript", ".cjs")

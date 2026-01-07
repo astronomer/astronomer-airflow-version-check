@@ -76,8 +76,8 @@ variables prefixed with `AIRFLOW__ASTRONOMER__`.
 
 This plugin provides a FastAPI-based API at `/version_check/`:
 
-- `GET /version_check/ui/status` - Returns current version status and any active warnings
-- `POST /version_check/ui/dismiss/eom` - Dismiss EOM warning for the configured period
-- `POST /version_check/ui/dismiss/eobs` - Dismiss EOBS warning for the configured period
+- `GET /version_check/status` - Returns current version status and any active warnings
+- `POST /version_check/dismiss/eom` - Dismiss EOM warning for the configured period
+- `POST /version_check/dismiss/eobs` - Dismiss EOBS warning for the configured period
 
 API documentation is available at `/version_check/docs` (Swagger UI) and `/version_check/redoc` (ReDoc).

@@ -55,7 +55,7 @@ const getBaseUrl = (): string => {
 };
 
 const api = axios.create({
-  baseURL: `${getBaseUrl()}/version_check/ui`,
+  baseURL: `${getBaseUrl()}/version_check`,
 });
 
 export const fetchStatus = async (): Promise<StatusResponse> => {
