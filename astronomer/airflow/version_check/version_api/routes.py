@@ -7,6 +7,14 @@ from airflow.api_fastapi.common.router import AirflowRouter
 from airflow.utils.timezone import utcnow
 
 from astronomer.airflow.version_check.models.db import AstronomerAvailableVersion
+from astronomer.airflow.version_check.plugin import (
+    eobs_dismissal_period_days,
+    eobs_warning_opt_out,
+    eobs_warning_threshold_days,
+    eom_dismissal_period_days,
+    eom_warning_opt_out,
+    eom_warning_threshold_days,
+)
 from astronomer.airflow.version_check.update_checks import get_runtime_version
 from astronomer.airflow.version_check.version_api.datamodels import (
     DismissResponse,
@@ -110,13 +118,6 @@ def _get_priority_warning(
 @ui_router.get("/status")
 def get_status(session: SessionDep) -> StatusResponse:
     """Get the current version status and any active warnings."""
-    from astronomer.airflow.version_check.plugin import (
-        eobs_warning_opt_out,
-        eobs_warning_threshold_days,
-        eom_warning_opt_out,
-        eom_warning_threshold_days,
-    )
-
     runtime_version = get_runtime_version()
 
     current_version = None
@@ -135,11 +136,6 @@ def get_status(session: SessionDep) -> StatusResponse:
         eobs_opt_out=eobs_warning_opt_out,
     )
 
-    from astronomer.airflow.version_check.plugin import (
-        eobs_dismissal_period_days,
-        eom_dismissal_period_days,
-    )
-
     return StatusResponse(
         status=VersionStatus(
             current_version=runtime_version,
@@ -153,8 +149,6 @@ def get_status(session: SessionDep) -> StatusResponse:
 @ui_router.post("/dismiss/eom")
 def dismiss_eom_warning(session: SessionDep) -> DismissResponse:
     """Dismiss the End of Maintenance (EOM) warning for the configured period."""
-    from astronomer.airflow.version_check.plugin import eom_dismissal_period_days
-
     runtime_version = get_runtime_version()
     if not runtime_version:
         return DismissResponse(
@@ -188,8 +182,6 @@ def dismiss_eom_warning(session: SessionDep) -> DismissResponse:
 @ui_router.post("/dismiss/eobs")
 def dismiss_eobs_warning(session: SessionDep) -> DismissResponse:
     """Dismiss the End of Basic Support (EOBS) warning for the configured period."""
-    from astronomer.airflow.version_check.plugin import eobs_dismissal_period_days
-
     runtime_version = get_runtime_version()
     if not runtime_version:
         return DismissResponse(
