@@ -47,12 +47,6 @@ class StatusResponse(BaseModel):
     eobs_dismissal_period_days: int
 
 
-class DismissRequest(BaseModel):
-    """Request to dismiss a warning."""
-
-    pass  # No additional fields needed, the type is in the URL
-
-
 class DismissResponse(BaseModel):
     """Response after dismissing a warning."""
 
