@@ -18,7 +18,6 @@
  */
 import { ChakraProvider, Box } from "@chakra-ui/react";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { FC } from "react";
 
 import { fetchStatus } from "src/api/versionCheck";
 import { WarningBanner } from "src/components/WarningBanner";
@@ -32,7 +31,7 @@ const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000;
 /**
  * Version Check content component that displays warnings
  */
-const VersionCheckContent: FC = () => {
+const VersionCheckContent = () => {
   const { data, isLoading, error } = useQuery({
     queryKey: ["versionStatus"],
     queryFn: fetchStatus,
@@ -59,7 +58,7 @@ const VersionCheckContent: FC = () => {
 /**
  * Main plugin component
  */
-const PluginComponent: FC<PluginComponentProps> = () => {
+const PluginComponent = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
