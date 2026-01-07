@@ -90,7 +90,7 @@ The difference between **warning threshold days** and **dismissal period days**:
   - Default: 7 days
   - Example: If `eom_dismissal_period_days = 7`, when a user dismisses the warning, it won't show again for 7 days
 
-**Complete Example:**
+** Example for understanding:**
 - `eom_warning_threshold_days = 30`: Warning starts appearing 30 days before the End of Maintenance date
 - `eom_dismissal_period_days = 7`: When dismissed, the warning stays hidden for 7 days
 
@@ -109,3 +109,23 @@ This plugin provides a FastAPI-based API at `/version_check/`:
 - `POST /version_check/dismiss/eobs` - Dismiss EOBS warning for the configured period
 
 API documentation is available at `/version_check/docs` (Swagger UI) and `/version_check/redoc` (ReDoc).
+
+## Building and Packaging
+
+Before building the Python package, you must build the UI assets. The packaging process expects the built assets to be available in `astronomer/airflow/version_check/www/dist/`.
+
+**Important:** There is currently no automatic step in the packaging process to build the UI assets. You must manually run the build commands before creating the wheel:
+
+```bash
+cd astronomer/airflow/version_check/www
+pnpm install
+pnpm build
+```
+
+After building the UI assets, you can build the Python package:
+
+```bash
+python setup.py sdist bdist_wheel
+```
+
+The built assets will be included in the final wheel package.
