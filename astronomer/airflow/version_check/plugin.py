@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import functools
 import logging
-import sys
 
 from airflow.configuration import conf
 from airflow.plugins_manager import AirflowPlugin
@@ -24,11 +23,6 @@ eom_warning_threshold_days = conf.getint("astronomer", "eom_warning_threshold_da
 eobs_warning_opt_out = conf.getboolean("astronomer", "eobs_warning_opt_out", fallback=False)
 eobs_dismissal_period_days = conf.getint("astronomer", "eobs_dismissal_period_days", fallback=7)
 eobs_warning_threshold_days = conf.getint("astronomer", "eobs_warning_threshold_days", fallback=30)
-
-# Check if we're running on the API server
-RUNNING_ON_APISERVER = (len(sys.argv) > 1 and sys.argv[1] in ["api-server"]) or (
-    len(sys.argv) > 2 and "api_fastapi" in sys.argv[2]
-)
 
 
 def _get_base_url_path(path: str) -> str:
@@ -59,20 +53,15 @@ def _get_api_endpoint() -> dict:
 class AstronomerVersionCheckPlugin(AirflowPlugin):
     name = "astronomer_version_check"
 
-    # Register FastAPI app and React app only on API server (Airflow 3.1+ only)
-    if RUNNING_ON_APISERVER:
-        try:
-            fastapi_apps = [_get_api_endpoint()]
-            react_apps = [
-                {
-                    "name": "Version Check",
-                    "bundle_url": _get_base_url_path("/version_check/static/main.umd.cjs"),
-                    "destination": "dashboard",
-                    "url_route": "version-check",
-                },
-            ]
-        except Exception:
-            pass
+    fastapi_apps = [_get_api_endpoint()]
+    react_apps = [
+        {
+            "name": "Version Check",
+            "bundle_url": _get_base_url_path("/version_check/static/main.umd.cjs"),
+            "destination": "dashboard",
+            "url_route": "version-check",
+        },
+    ]
 
     @staticmethod
     def add_before_call(mod_or_cls, target, pre_fn) -> None:
