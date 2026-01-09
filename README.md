@@ -13,6 +13,10 @@ This plugin also shows options to dismiss the EOL warnings for a configurable nu
 
 Additionally, it checks if the current running version of Astronomer Runtime has been yanked. If a yanked version is detected, a warning message will appear in the Airflow UI. The yanked versions will not be displayed as available updates to prevent users from being prompted to upgrade to a yanked version.
 
+## Requirements
+
+Airflow version: 3.1.5+
+
 ## Settings
 
 This plugin looks at the following settings under the `astronomer` section of
@@ -43,3 +47,10 @@ variables prefixed with `AIRFLOW__ASTRONOMER__`.
 - `eol_warning_threshold_days`
 
   Sets the threshold for showing EOL warnings. The default is 30 days.
+
+## Development
+
+- Install tooling and dev deps: `uv sync --group dev`
+- Lint: `prek run --all-files`
+- Tests: `uv run pytest`
+- Build distributions: `uv build`

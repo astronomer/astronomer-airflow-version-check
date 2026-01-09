@@ -1,8 +1,8 @@
 # Requirements that can't be expressed in setup.py
--c https://raw.githubusercontent.com/apache/airflow/constraints-3.0.1/constraints-3.11.txt
+-c https://raw.githubusercontent.com/apache/airflow/constraints-3.1.5/constraints-3.11.txt
 wheel==0.45.1
-apache-airflow==3.0.1
+apache-airflow==3.1.5
 time_machine
 pytest-env
 
--e .[test]
+-e .[dev]

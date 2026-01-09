@@ -24,16 +24,17 @@ workflows:
 jobs:
   build:
     docker:
-      - image: cimg/python:3.9
+      - image: cimg/python:3.11
     steps:
       - checkout
       - run:
           name: Install test deps
           command: |
+            python3 -m pip install uv
             # Use a virtual env to encapsulate everything in one folder for caching
-            python3 -m venv .venv
+            uv venv
             . .venv/bin/activate
-            pip install -r dev-requirements.txt
+            uv pip install -r dev-requirements.txt
       - run:
           name: run_tests
           command: |
@@ -50,7 +51,7 @@ jobs:
       - run:
           command: |
             . .venv/bin/activate
-            pip install prek
+            uv pip install prek
             prek run --all-files --show-diff-on-failure
       - save_cache:
           key: v1-prek-cache-{{ checksum "prek-cache-key.txt" }}
@@ -59,8 +60,7 @@ jobs:
       - run:
           name: build_wheel
           command: |
-            . .venv/bin/activate
-            python3 setup.py sdist bdist_wheel
+            uv build
       - store_test_results:
           path: test-results
 
@@ -83,15 +83,7 @@ jobs:
             && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg  add - \
             && sudo apt-get update -y \
             && sudo apt-get install google-cloud-cli -y
-      - run:
-          name: verify tag
-          command: |-
 
-            python3 -m venv .venv
-            . .venv/bin/activate
-            pip install --upgrade pip setuptools wheel==0.45.1
-            pip install -r dev-requirements.txt
-            python3 setup.py verify
       - attach_workspace:
           at: /tmp/workspace
       - run:

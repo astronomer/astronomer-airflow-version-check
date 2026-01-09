@@ -1,12 +1,19 @@
 import functools
 import logging
+import tomllib
+from importlib import metadata
+from pathlib import Path
 
 from airflow.configuration import conf
 from airflow.plugins_manager import AirflowPlugin
 from airflow.utils.session import create_session
 from sqlalchemy import inspect
 
-__version__ = "3.0.0"
+try:
+    __version__ = metadata.version("astronomer-airflow-version-check")
+except metadata.PackageNotFoundError:
+    pyproject_path = Path(__file__).resolve().parents[3] / "pyproject.toml"
+    __version__ = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))["project"]["version"]
 
 log = logging.getLogger(__name__)
 
