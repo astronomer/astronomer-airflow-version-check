@@ -36,8 +36,7 @@ repos:
     hooks:
       - id: lint-ui
         name: Lint UI (ESLint + TypeScript)
-        entry: bash -c 'cd astronomer/airflow/version_check/www && pnpm run lint'
+        entry: bash -c 'cd astronomer/airflow/version_check/www && pnpm exec eslint --quiet "$@" && pnpm exec tsc --p tsconfig.app.json' --
         language: system
         types: [file]
         files: ^astronomer/airflow/version_check/www/.*\.(ts|tsx|js|jsx)$
-        pass_filenames: false
