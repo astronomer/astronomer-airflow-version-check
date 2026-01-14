@@ -15,7 +15,13 @@ WWW_DIR = PROJECT_ROOT / "astronomer" / "airflow" / "version_check" / "www"
 DIST_DIR = WWW_DIR / "dist"
 HASH_FILE = PROJECT_ROOT / "www-hash.txt"
 
-SKIP_PATH_REGEXPS = [".*/node_modules.*", ".*/.pnpm-store.*", ".*/dist.*"]
+SKIP_PATH_REGEXPS = [
+    ".*/node_modules.*",
+    ".*/.pnpm-store.*",
+    ".*/dist.*",
+    ".*/package-lock.json$",
+    ".*/pnpm-lock.yaml$",
+]
 
 
 def get_directory_hash(directory: Path, skip_path_regexps: list[str]) -> str:
