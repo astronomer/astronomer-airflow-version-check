@@ -30,3 +30,4 @@ airflow.cfg
 node_modules/
 package-lock.json
 .pnpm-store/
+www-hash.txt

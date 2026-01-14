@@ -1,5 +1,6 @@
 include LICENSE
 include README.md
+include astronomer/airflow/version_check/alembic.ini
 recursive-include astronomer/airflow/version_check/migrations *
 recursive-include astronomer/airflow/version_check/www/dist *
 prune astronomer/airflow/version_check/www/node_modules
