@@ -48,13 +48,6 @@ jobs:
           keys:
             - v1-prek-cache-{{ checksum "prek-cache-key.txt" }}
       - run:
-          name: Install Node.js and pnpm for pre-commit hooks
-          command: |
-            node --version
-            sudo npm install -g pnpm
-            cd astronomer/airflow/version_check/www
-            pnpm install
-      - run:
           command: |
             . .venv/bin/activate
             pip install prek
@@ -63,11 +56,6 @@ jobs:
           key: v1-prek-cache-{{ checksum "prek-cache-key.txt" }}
           paths:
             - ~/.cache/prek
-      - run:
-          name: lint_ui
-          command: |
-            cd astronomer/airflow/version_check/www
-            pnpm run lint
       - run:
           name: build_wheel
           command: |
