@@ -10,8 +10,6 @@ import sys
 import threading
 import time
 from datetime import timedelta
-from functools import wraps
-from typing import Callable, Sequence, TypeVar, cast
 
 import distro
 import pendulum
@@ -24,65 +22,9 @@ from airflow.utils.timezone import utcnow
 from requests.exceptions import HTTPError, SSLError
 from semver import Version as version
 
-T = TypeVar("T", bound=Callable)
-
 # Code is placed in this file as the default Airflow logging config shows the
 # file name (not the logger name) so this prefixes our log messages with
 # "update_checks.py"
-
-
-def has_access_(permissions: Sequence[tuple[str, str]]) -> Callable[[T], T]:
-    """
-    Fallback has_access decorator for Airflow 2 compatibility.
-    Only used when airflow.www.auth.has_access is not available.
-    """
-    # Lazy import Flask only when this function is actually used (Airflow 2 fallback)
-    from flask import flash, g, redirect, render_template, request
-
-    method: str = permissions[0][0]
-    resource_type: str = permissions[0][1]
-
-    from airflow.api_fastapi.app import get_auth_manager
-    from airflow.utils.net import get_hostname
-
-    def decorated(*, is_authorized: bool, func: Callable, args, kwargs):
-        """
-        Define the behavior whether the user is authorized to access the resource.
-        :param is_authorized: whether the user is authorized to access the resource
-        :param func: the function to call if the user is authorized
-        :param args: the arguments of ``func``
-        :param kwargs: the keyword arguments ``func``
-        :meta private:
-        """
-        if is_authorized:
-            return func(*args, **kwargs)
-        elif get_auth_manager().is_logged_in() and not g.user.perms:
-            return (
-                render_template(
-                    "airflow/no_roles_permissions.html",
-                    hostname=get_hostname() if conf.getboolean("webserver", "EXPOSE_HOSTNAME") else "redact",
-                    logout_url=get_auth_manager().get_url_logout(),
-                ),
-                403,
-            )
-        else:
-            access_denied = conf.get("webserver", "access_denied_message")
-            flash(access_denied, "danger")
-        return redirect(get_auth_manager().get_url_login(next=request.url))
-
-    def has_access_decorator(func: T):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            return decorated(
-                is_authorized=get_auth_manager().is_authorized(method=method, resource_type=resource_type),
-                func=func,
-                args=args,
-                kwargs=kwargs,
-            )
-
-        return cast(T, wrapper)
-
-    return has_access_decorator
 
 
 def parse_new_version(version_str):
@@ -93,14 +35,6 @@ def parse_new_version(version_str):
     match = re.match(r"(\d+)\.(\d+)(?:-(\d+))?", version_str)
     major, minor, patch = match.groups()
     return version.parse(f"{major}.{minor}.{patch}")
-
-
-# This code is introduced to maintain backward compatibility, since with airflow > 2.8
-# method `has_access` will be deprecated in airflow.www.auth.
-try:
-    from airflow.www.auth import has_access
-except ImportError:
-    has_access = has_access_
 
 
 class UpdateResult(enum.Enum):
