@@ -4,8 +4,9 @@ from datetime import timedelta
 
 from airflow.api_fastapi.common.db.common import SessionDep
 from airflow.api_fastapi.common.router import AirflowRouter
-from airflow.api_fastapi.core_api.security import GetUserDep
+from airflow.api_fastapi.core_api.security import GetUserDep, requires_access_configuration
 from airflow.utils.timezone import utcnow
+from fastapi import Depends
 
 from astronomer.airflow.version_check.models.db import AstronomerAvailableVersion
 from astronomer.airflow.version_check.plugin import (
@@ -147,7 +148,12 @@ def get_status(
     )
 
 
-@ui_router.post("/dismiss/eom")
+@ui_router.post(
+    "/dismiss/eom",
+    dependencies=[
+        Depends(requires_access_configuration(method="PUT")),
+    ],
+)
 def dismiss_eom_warning(
     session: SessionDep,
     _user: GetUserDep,
@@ -183,7 +189,12 @@ def dismiss_eom_warning(
     )
 
 
-@ui_router.post("/dismiss/eobs")
+@ui_router.post(
+    "/dismiss/eobs",
+    dependencies=[
+        Depends(requires_access_configuration(method="PUT")),
+    ],
+)
 def dismiss_eobs_warning(
     session: SessionDep,
     _user: GetUserDep,
