@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import mimetypes
 from datetime import timedelta
 from pathlib import Path
@@ -29,6 +30,8 @@ from astronomer.airflow.version_check.version_api.datamodels import (
     WarningLevel,
     WarningType,
 )
+
+log = logging.getLogger(__name__)
 
 PACKAGE_DIR = Path(__file__).parents[1]
 
@@ -245,12 +248,15 @@ def create_version_check_api_app() -> FastAPI:
     if ".cjs" not in mimetypes.suffix_map:
         mimetypes.add_type("application/javascript", ".cjs")
 
-    www_dist = PACKAGE_DIR / "www" / "dist"
-    if www_dist.exists():
+    www_files = PACKAGE_DIR / "www"
+    www_dist = www_files / "dist"
+    if www_dist.exists() and www_dist.is_dir():
         app.mount(
             "/static",
             StaticFiles(directory=www_dist.absolute(), html=True),
             name="version_check_static_files",
         )
+    else:
+        log.warning(f"Static files directory not found at {www_dist.absolute()}. Static files will not be served.")
 
     return app
