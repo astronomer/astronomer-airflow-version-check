@@ -1,0 +1,10 @@
+include LICENSE
+include README.md
+recursive-include astronomer/airflow/version_check/migrations *
+recursive-include astronomer/airflow/version_check/www/dist *
+prune astronomer/airflow/version_check/www/node_modules
+prune astronomer/airflow/version_check/www/src
+recursive-exclude astronomer/airflow/version_check/www *.json *.ts *.tsx *.mjs *.cjs *.yaml *.lock
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .git*
