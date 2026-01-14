@@ -24,7 +24,7 @@ workflows:
 jobs:
   build:
     docker:
-      - image: cimg/python:3.9
+      - image: cimg/python:3.9-node
     steps:
       - checkout
       - run:
@@ -50,17 +50,12 @@ jobs:
       - run:
           name: Install Node.js and pnpm for pre-commit hooks
           command: |
-            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            nvm install 22
-            nvm use 22
+            # Check Node.js version that comes with the image
+            node --version
+            # Install pnpm
             npm install -g pnpm
             cd astronomer/airflow/version_check/www
             pnpm install
-            echo 'export NVM_DIR="$HOME/.nvm"' >> $BASH_ENV
-            echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' >> $BASH_ENV
-            echo 'nvm use 22' >> $BASH_ENV
       - run:
           command: |
             . .venv/bin/activate

@@ -66,10 +66,7 @@ def _get_priority_warning(
     if not eobs_opt_out and current_version.end_of_basic_support:
         days_to_eobs = (current_version.end_of_basic_support - now).days
         if days_to_eobs <= eobs_threshold_days:
-            # Check if dismissed
-            if current_version.eobs_dismissed_until and now < current_version.eobs_dismissed_until:
-                pass  # Dismissed, skip to EOM check
-            else:
+            if not current_version.eobs_dismissed_until or now >= current_version.eobs_dismissed_until:
                 level = WarningLevel.CRITICAL if days_to_eobs <= 0 else WarningLevel.WARNING
                 if days_to_eobs <= 0:
                     message = (
