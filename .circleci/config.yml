@@ -52,8 +52,7 @@ jobs:
           command: |
             # Check Node.js version that comes with the image
             node --version
-            # Install pnpm
-            npm install -g pnpm
+            sudo npm install -g pnpm
             cd astronomer/airflow/version_check/www
             pnpm install
       - run:
