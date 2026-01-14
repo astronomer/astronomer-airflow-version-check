@@ -15,7 +15,7 @@ from astronomer.airflow.version_check.update_checks import (
     CheckThread,
     parse_new_version,
 )
-from astronomer.airflow.version_check.version_api.routes import _get_priority_warning
+from astronomer.airflow.version_check.version_api.app import _get_priority_warning
 
 
 @pytest.mark.parametrize("image_version, new_patch_version", [("3.0-1", "3.0-2")])
