@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import functools
 import logging
 
@@ -11,13 +13,55 @@ __version__ = "3.0.0"
 log = logging.getLogger(__name__)
 
 update_check_interval = conf.getint("astronomer", "update_check_interval", fallback=24 * 60 * 60)
-eol_warning_opt_out = conf.getboolean("astronomer", "eol_warning_opt_out", fallback=False)
-dismissal_period_days = conf.getint("astronomer", "eol_dismissal_period_days", fallback=7)
-eol_warning_threshold_days = conf.getint("astronomer", "eol_warning_threshold_days", fallback=30)
+
+# End of Maintenance (EOM) warning configuration
+eom_warning_opt_out = conf.getboolean("astronomer", "eom_warning_opt_out", fallback=False)
+eom_dismissal_period_days = conf.getint("astronomer", "eom_dismissal_period_days", fallback=7)
+eom_warning_threshold_days = conf.getint("astronomer", "eom_warning_threshold_days", fallback=30)
+
+# End of Basic Support (EOBS) warning configuration
+eobs_warning_opt_out = conf.getboolean("astronomer", "eobs_warning_opt_out", fallback=False)
+eobs_dismissal_period_days = conf.getint("astronomer", "eobs_dismissal_period_days", fallback=7)
+eobs_warning_threshold_days = conf.getint("astronomer", "eobs_warning_threshold_days", fallback=30)
+
+
+def _get_base_url_path(path: str) -> str:
+    """Construct URL path with webserver base_url prefix."""
+    base_url = conf.get("api", "base_url", fallback="/")
+    if base_url.startswith(("http://", "https://")):
+        from urllib.parse import urlparse
+
+        base_path = urlparse(base_url).path
+    else:
+        base_path = base_url
+
+    base_path = base_path.rstrip("/")
+    return base_path + path
+
+
+def _get_api_endpoint() -> dict:
+    """Get the FastAPI app configuration for the plugin."""
+    from astronomer.airflow.version_check.version_api.app import create_version_check_api_app
+
+    return {
+        "app": create_version_check_api_app(),
+        "url_prefix": "/version_check",
+        "name": "Astronomer Version Check",
+    }
 
 
 class AstronomerVersionCheckPlugin(AirflowPlugin):
     name = "astronomer_version_check"
+
+    fastapi_apps = [_get_api_endpoint()]
+    react_apps = [
+        {
+            "name": "Version Check",
+            "bundle_url": _get_base_url_path("/version_check/static/main.umd.cjs"),
+            "destination": "dashboard",
+            "url_route": "version-check",
+        },
+    ]
 
     @staticmethod
     def add_before_call(mod_or_cls, target, pre_fn) -> None:

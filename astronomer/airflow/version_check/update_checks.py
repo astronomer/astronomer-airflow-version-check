@@ -10,8 +10,6 @@ import sys
 import threading
 import time
 from datetime import timedelta
-from functools import wraps
-from typing import Any, Callable, Sequence, TypeVar, cast
 
 import distro
 import pendulum
@@ -21,63 +19,12 @@ from airflow.configuration import conf
 from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow.utils.session import create_session
 from airflow.utils.timezone import utcnow
-from flask import flash, g, redirect, render_template, request
 from requests.exceptions import HTTPError, SSLError
 from semver import Version as version
-from sqlalchemy import or_
-
-T = TypeVar("T", bound=Callable)
 
 # Code is placed in this file as the default Airflow logging config shows the
 # file name (not the logger name) so this prefixes our log messages with
 # "update_checks.py"
-
-
-def has_access_(permissions: Sequence[tuple[str, str]]) -> Callable[[T], T]:
-    method: str = permissions[0][0]
-    resource_type: str = permissions[0][1]
-
-    from airflow.api_fastapi.app import get_auth_manager
-    from airflow.utils.net import get_hostname
-
-    def decorated(*, is_authorized: bool, func: Callable, args, kwargs):
-        """
-        Define the behavior whether the user is authorized to access the resource.
-        :param is_authorized: whether the user is authorized to access the resource
-        :param func: the function to call if the user is authorized
-        :param args: the arguments of ``func``
-        :param kwargs: the keyword arguments ``func``
-        :meta private:
-        """
-        if is_authorized:
-            return func(*args, **kwargs)
-        elif get_auth_manager().is_logged_in() and not g.user.perms:
-            return (
-                render_template(
-                    "airflow/no_roles_permissions.html",
-                    hostname=get_hostname() if conf.getboolean("webserver", "EXPOSE_HOSTNAME") else "redact",
-                    logout_url=get_auth_manager().get_url_logout(),
-                ),
-                403,
-            )
-        else:
-            access_denied = conf.get("webserver", "access_denied_message")
-            flash(access_denied, "danger")
-        return redirect(get_auth_manager().get_url_login(next=request.url))
-
-    def has_access_decorator(func: T):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            return decorated(
-                is_authorized=get_auth_manager().is_authorized(method=method, resource_type=resource_type),
-                func=func,
-                args=args,
-                kwargs=kwargs,
-            )
-
-        return cast(T, wrapper)
-
-    return has_access_decorator
 
 
 def parse_new_version(version_str):
@@ -88,14 +35,6 @@ def parse_new_version(version_str):
     match = re.match(r"(\d+)\.(\d+)(?:-(\d+))?", version_str)
     major, minor, patch = match.groups()
     return version.parse(f"{major}.{minor}.{patch}")
-
-
-# This code is introduced to maintain backward compatibility, since with airflow > 2.8
-# method `has_access` will be deprecated in airflow.www.auth.
-try:
-    from airflow.www.auth import has_access
-except ImportError:
-    has_access = has_access_
 
 
 class UpdateResult(enum.Enum):
@@ -355,131 +294,6 @@ class CheckThread(threading.Thread, LoggingMixin):
         except (SSLError, HTTPError) as e:
             self.log.warning("Error fetching update document: %s", e)
             pass
-
-
-class UpdateAvailableHelper(LoggingMixin):
-    def __init__(self):
-        from .plugin import dismissal_period_days, eol_warning_threshold_days
-
-        self.eol_warning_threshold_days = eol_warning_threshold_days
-        self.dismissal_period_days = dismissal_period_days
-
-    def get_eol_notice(self, current_version) -> dict[str, Any] | None:
-        """
-        Get the EOL notice information if the current version is near or past its end of maintenance.
-
-        :param current_version: The current runtime version information.
-        """
-        if current_version and current_version.end_of_maintenance:
-            now = utcnow()
-            days_to_eol = (current_version.end_of_maintenance - now).days
-            if days_to_eol <= self.eol_warning_threshold_days:
-                if not current_version.eos_dismissed_until or now > current_version.eos_dismissed_until:
-                    eol_level = "critical" if days_to_eol <= 0 else "warning"
-                    description = "{} version {} {}.".format(
-                        "Astronomer Runtime",
-                        current_version.version,
-                        (
-                            "has reached its end of maintenance"
-                            if days_to_eol <= 0
-                            else f"will reach its end of maintenance in {days_to_eol} days"
-                        ),
-                    )
-                    return {
-                        "level": eol_level,
-                        "version": current_version.version,
-                        "app_name": "Astronomer Runtime",
-                        "days_to_eol": days_to_eol,
-                        "description": description,
-                        "dismissed_until": current_version.eos_dismissed_until,
-                    }
-        return None
-
-    def available_update(self):
-        """Check if there is a new version of Astronomer Runtime available."""
-        from astronomer.airflow.version_check.models.db import AstronomerAvailableVersion
-
-        with create_session() as session:
-            available_releases = session.query(AstronomerAvailableVersion).filter(
-                AstronomerAvailableVersion.hidden_from_ui.is_(False),
-                or_(AstronomerAvailableVersion.yanked.is_(False), AstronomerAvailableVersion.yanked.is_(None)),
-            )
-
-        runtime_version = parse_new_version(get_runtime_version())
-        base_version = runtime_version.major
-
-        sorted_releases = sorted(available_releases, key=lambda v: parse_new_version(v.version), reverse=True)
-        for rel in sorted_releases:
-            # Only notify about the latest release if the user is in the highest patch level.
-            # On runtime:
-            # if the user is on version 5.0.6 and 5.0.8, 6.0.0 are available,
-            # notify the user about 5.0.8 and don't notify user about 6.0.0.
-            rel_parsed_version = parse_new_version(rel.version)
-
-            rel_parsed_base_version = rel_parsed_version.major
-            if rel_parsed_version > runtime_version and rel_parsed_base_version == base_version:
-                return {
-                    "level": rel.level,
-                    "date_released": rel.date_released,
-                    "description": rel.description,
-                    "version": rel.version,
-                    "url": rel.url,
-                    "app_name": "Astronomer Runtime",
-                }
-
-        if sorted_releases:
-            recent_release = sorted_releases[0]
-            return {
-                "level": recent_release.level,
-                "date_released": recent_release.date_released,
-                "description": recent_release.description,
-                "version": recent_release.version,
-                "url": recent_release.url,
-                "app_name": "Astronomer Runtime",
-            }
-
-        return None
-
-    def available_eol(self) -> dict[str, Any] | None:
-        """Check if there is an EOL notice for the current version of Astronomer Runtime."""
-        from astronomer.airflow.version_check.models.db import AstronomerAvailableVersion
-
-        from .plugin import eol_warning_opt_out
-
-        if eol_warning_opt_out:
-            return None
-
-        with create_session() as session:
-            runtime_version = get_runtime_version()
-            current_version = (
-                session.query(AstronomerAvailableVersion)
-                .filter(AstronomerAvailableVersion.version == str(runtime_version))
-                .one_or_none()
-            )
-            return self.get_eol_notice(current_version)
-
-    def available_yanked(self) -> dict[str, Any] | None:
-        """Check if the current version of Astronomer Runtime is yanked."""
-        from astronomer.airflow.version_check.models.db import AstronomerAvailableVersion
-
-        with create_session() as session:
-            runtime_version = get_runtime_version()
-            current_version = (
-                session.query(AstronomerAvailableVersion)
-                .filter(
-                    AstronomerAvailableVersion.version == str(runtime_version),
-                    AstronomerAvailableVersion.yanked.is_(True),
-                )
-                .one_or_none()
-            )
-
-            if current_version and current_version.yanked:
-                return (
-                    f"Warning: This version of Astronomer Runtime, {runtime_version}, has been yanked. "
-                    "We strongly recommend upgrading to a more recent supported version."
-                )
-
-            return None
 
 
 def get_runtime_version():

@@ -32,3 +32,27 @@ repos:
       - id: ruff-check
         args: [ --fix ]
       - id: ruff-format
+  - repo: local
+    hooks:
+      - id: lint-ui
+        name: Lint UI (ESLint + TypeScript)
+        description: ESLint and TypeScript type checking for version check UI files
+        language: node
+        files: |
+          (?x)
+          ^astronomer/airflow/version_check/www/.*\.(ts|tsx|js|jsx)$
+        exclude: |
+          (?x)
+          ^astronomer/airflow/version_check/www/node_modules/.*|
+          ^astronomer/airflow/version_check/www/.pnpm-store
+        entry: scripts/ci/prek/ts_compile_lint_version_check.py
+        additional_dependencies: ['pnpm@10.25.0']
+        pass_filenames: true
+        require_serial: true
+      - id: compile-assets
+        name: Compile version check UI assets
+        language: node
+        files: ^astronomer/airflow/version_check/www
+        entry: scripts/ci/prek/compile_version_check_assets.py
+        pass_filenames: false
+        additional_dependencies: ['pnpm@10.25.0']

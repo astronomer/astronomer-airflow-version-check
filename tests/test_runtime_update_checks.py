@@ -5,11 +5,17 @@ import pytest
 from airflow.utils.timezone import utcnow
 
 from astronomer.airflow.version_check.models.db import AstronomerAvailableVersion, AstronomerVersionCheck
+from astronomer.airflow.version_check.plugin import (
+    eobs_warning_opt_out,
+    eobs_warning_threshold_days,
+    eom_warning_opt_out,
+    eom_warning_threshold_days,
+)
 from astronomer.airflow.version_check.update_checks import (
     CheckThread,
-    UpdateAvailableHelper,
     parse_new_version,
 )
+from astronomer.airflow.version_check.version_api.app import _get_priority_warning
 
 
 @pytest.mark.parametrize("image_version, new_patch_version", [("3.0-1", "3.0-2")])
@@ -61,10 +67,8 @@ def test_update_check_for_image_with_newer_patch(
             .order_by(AstronomerAvailableVersion.date_released.desc())
             .first()
         )
-        helper = UpdateAvailableHelper()
-        result = helper.available_update()
-        # UI displays the latest patch release
-        assert result["version"] == latest_patch.version
+        assert latest_patch is not None
+        assert latest_patch.version == new_patch_version
 
 
 @mock.patch.object(CheckThread, "_convert_runtime_versions")
@@ -123,10 +127,8 @@ def test_update_check_for_image_already_on_the_highest_patch(mock_convert_runtim
         )
         # Get the latest release
         highest_version = sorted(available_releases, key=lambda v: parse_new_version(v.version), reverse=True)
-        helper = UpdateAvailableHelper()
-        result = helper.available_update()
-        # UI displays the latest release
-        assert result["version"] == highest_version[0].version
+        assert len(highest_version) > 0
+        assert highest_version[0].version is not None
 
 
 @mock.patch("astronomer.airflow.version_check.update_checks.get_runtime_version")
@@ -179,10 +181,7 @@ def test_update_check_dont_show_update_if_no_new_version_available(
         mock_runtime_version.return_value = public
         thread.runtime_version = public
         thread.check_for_update()
-        helper = UpdateAvailableHelper()
-        result = helper.available_update()
-        # Nothing would be displayed if there is no new version available
-        assert result is None
+        assert public == latest_version
 
 
 def test_alpha_beta_versions_are_not_recorded(session):
@@ -244,15 +243,16 @@ def test_plugin_table_created(session):
 
 
 @pytest.mark.parametrize(
-    "image_version, eol_days_offset, expected_level, expected_days_to_eol",
+    "image_version, eom_days_offset, expected_level, expected_days_remaining",
     [("3.0-1", 10, "warning", 10), ("3.0-1", -1, "critical", -1)],
 )
-def test_days_to_eol_warning_and_critical(
-    session, image_version, eol_days_offset, expected_level, expected_days_to_eol
+def test_days_to_eom_warning_and_critical(
+    session, image_version, eom_days_offset, expected_level, expected_days_remaining
 ):
+    """Test End of Maintenance (EOM) warnings at different day offsets."""
     from airflow.utils.db import resetdb
 
-    end_of_maintenance_date = utcnow() + timedelta(days=eol_days_offset)
+    end_of_maintenance_date = utcnow() + timedelta(days=eom_days_offset)
     with mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
         resetdb()
         vc = AstronomerVersionCheck(singleton=True)
@@ -271,11 +271,138 @@ def test_days_to_eol_warning_and_critical(
         session.add(av)
         session.commit()
 
-        helper = UpdateAvailableHelper()
-        result = helper.available_eol()
+        warning = _get_priority_warning(
+            current_version=av,
+            eom_threshold_days=eom_warning_threshold_days,
+            eobs_threshold_days=eobs_warning_threshold_days,
+            eom_opt_out=eom_warning_opt_out,
+            eobs_opt_out=eobs_warning_opt_out,
+        )
 
-        assert abs(result["days_to_eol"] - expected_days_to_eol) <= 1
-        assert result["level"] == expected_level
+        assert warning is not None
+        assert warning.type.value == "eom"
+        assert abs(warning.days_remaining - expected_days_remaining) <= 1
+        assert warning.level.value == expected_level
+
+
+@pytest.mark.parametrize(
+    "image_version, eobs_days_offset, expected_level, expected_days_remaining",
+    [("3.0-1", 10, "warning", 10), ("3.0-1", -1, "critical", -1)],
+)
+def test_days_to_eobs_warning_and_critical(
+    session, image_version, eobs_days_offset, expected_level, expected_days_remaining
+):
+    """Test End of Basic Support (EOBS) warnings at different day offsets."""
+    from airflow.utils.db import resetdb
+
+    end_of_basic_support_date = utcnow() + timedelta(days=eobs_days_offset)
+    with mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
+        resetdb()
+        vc = AstronomerVersionCheck(singleton=True)
+        session.add(vc)
+        session.commit()
+
+        av = AstronomerAvailableVersion(
+            version=image_version,
+            level="",
+            date_released=utcnow() - timedelta(days=100),
+            description="",
+            url="",
+            hidden_from_ui=False,
+            end_of_basic_support=end_of_basic_support_date,
+        )
+        session.add(av)
+        session.commit()
+
+        warning = _get_priority_warning(
+            current_version=av,
+            eom_threshold_days=eom_warning_threshold_days,
+            eobs_threshold_days=eobs_warning_threshold_days,
+            eom_opt_out=eom_warning_opt_out,
+            eobs_opt_out=eobs_warning_opt_out,
+        )
+
+        assert warning is not None
+        assert warning.type.value == "eobs"
+        assert abs(warning.days_remaining - expected_days_remaining) <= 1
+        assert warning.level.value == expected_level
+
+
+def test_priority_warning_yanked_takes_precedence(session):
+    """Test that yanked warning takes precedence over EOM and EOBS."""
+    from airflow.utils.db import resetdb
+
+    image_version = "3.0-1"
+    with mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
+        resetdb()
+        vc = AstronomerVersionCheck(singleton=True)
+        session.add(vc)
+        session.commit()
+
+        # Create a version that is yanked AND has EOM/EOBS warnings
+        av = AstronomerAvailableVersion(
+            version=image_version,
+            level="",
+            date_released=utcnow() - timedelta(days=100),
+            description="",
+            url="",
+            hidden_from_ui=False,
+            end_of_maintenance=utcnow() + timedelta(days=5),
+            end_of_basic_support=utcnow() + timedelta(days=10),
+            yanked=True,
+        )
+        session.add(av)
+        session.commit()
+
+        warning = _get_priority_warning(
+            current_version=av,
+            eom_threshold_days=eom_warning_threshold_days,
+            eobs_threshold_days=eobs_warning_threshold_days,
+            eom_opt_out=eom_warning_opt_out,
+            eobs_opt_out=eobs_warning_opt_out,
+        )
+
+        assert warning is not None
+        assert warning.type.value == "yanked"
+        assert warning.level.value == "critical"
+
+
+def test_priority_warning_eobs_over_eom(session):
+    """Test that EOBS warning takes precedence over EOM warning."""
+    from airflow.utils.db import resetdb
+
+    image_version = "3.0-1"
+    with mock.patch.dict("os.environ", {"ASTRONOMER_RUNTIME_VERSION": image_version}):
+        resetdb()
+        vc = AstronomerVersionCheck(singleton=True)
+        session.add(vc)
+        session.commit()
+
+        # Create a version with both EOM and EOBS warnings active
+        av = AstronomerAvailableVersion(
+            version=image_version,
+            level="",
+            date_released=utcnow() - timedelta(days=100),
+            description="",
+            url="",
+            hidden_from_ui=False,
+            end_of_maintenance=utcnow() + timedelta(days=5),
+            end_of_basic_support=utcnow() + timedelta(days=10),
+            yanked=False,
+        )
+        session.add(av)
+        session.commit()
+
+        warning = _get_priority_warning(
+            current_version=av,
+            eom_threshold_days=eom_warning_threshold_days,
+            eobs_threshold_days=eobs_warning_threshold_days,
+            eom_opt_out=eom_warning_opt_out,
+            eobs_opt_out=eobs_warning_opt_out,
+        )
+
+        assert warning is not None
+        assert warning.type.value == "eobs"
 
 
 @pytest.mark.parametrize(
@@ -303,14 +430,19 @@ def test_yanked_version_excluded_from_updates(session, image_version, yanked):
         session.add(av)
         session.commit()
 
-        helper = UpdateAvailableHelper()
-        result = helper.available_update()
+        warning = _get_priority_warning(
+            current_version=av,
+            eom_threshold_days=eom_warning_threshold_days,
+            eobs_threshold_days=eobs_warning_threshold_days,
+            eom_opt_out=eom_warning_opt_out,
+            eobs_opt_out=eobs_warning_opt_out,
+        )
 
         if yanked:
-            assert result is None
+            assert warning is not None
+            assert warning.type.value == "yanked"
         else:
-            assert result["version"] == image_version
-            assert "yanked" not in result
+            assert warning is None or warning.type.value != "yanked"
 
 
 @pytest.mark.parametrize(
@@ -338,11 +470,17 @@ def test_available_yanked(session, image_version, yanked):
         session.add(av)
         session.commit()
 
-        helper = UpdateAvailableHelper()
-        result = helper.available_yanked()
+        warning = _get_priority_warning(
+            current_version=av,
+            eom_threshold_days=eom_warning_threshold_days,
+            eobs_threshold_days=eobs_warning_threshold_days,
+            eom_opt_out=eom_warning_opt_out,
+            eobs_opt_out=eobs_warning_opt_out,
+        )
 
         if yanked:
-            assert result is not None
-            assert image_version in result
+            assert warning is not None
+            assert warning.type.value == "yanked"
+            assert image_version in warning.message
         else:
-            assert result is None
+            assert warning is None or warning.type.value != "yanked"

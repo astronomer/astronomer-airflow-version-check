@@ -72,11 +72,6 @@ setup(
     long_description=desc(),
     long_description_content_type="text/markdown",
     packages=find_namespace_packages(include=("astronomer", "astronomer.*")),
-    package_data={
-        "": ["LICENSE"],
-        "astronomer.airflow.version_check.templates": ["*"],
-        "astronomer.airflow.version_check.static": ["*"],
-    },
     namespace_packages=["astronomer", "astronomer.airflow"],
     include_package_data=True,
     zip_safe=True,
